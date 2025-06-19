@@ -1,0 +1,512 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                String   @id @default(cuid())
+  email             String   @unique
+  phone             String?
+  password          String
+  firstName         String
+  lastName          String
+  userType          UserType
+  profileImage      String?
+  verificationStatus VerificationStatus @default(PENDING)
+  emailVerified     Boolean  @default(false)
+  phoneVerified     Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  isActive          Boolean  @default(true)
+  lastLoginAt       DateTime?
+  
+  // Additional Profile Fields
+  dateOfBirth       DateTime?
+  ssn               String?   // Encrypted
+  creditScore       Int?
+  annualIncome      Int?
+  employmentStatus  String?
+  companyName       String?
+  workPhone         String?
+  emergencyContact  Json?
+  backgroundCheckStatus String @default("PENDING")
+  
+  // Relationships
+  properties        Property[]
+  applications      Application[]
+  sentMessages      Message[] @relation("SentMessages")
+  receivedMessages  Message[] @relation("ReceivedMessages")
+  payments          Payment[]
+  reviews           Review[]
+  savedProperties   SavedProperty[]
+  emailVerifications EmailVerification[]
+  passwordResets    PasswordReset[]
+  maintenanceRequests MaintenanceRequest[] @relation("TenantRequests")
+  
+  @@map("users")
+}
+
+model EmailVerification {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  
+  user      User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("email_verifications")
+}
+
+model PasswordReset {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  
+  user      User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("password_resets")
+}
+
+model EmailLog {
+  id        String   @id @default(cuid())
+  to        String
+  subject   String
+  template  String
+  status    EmailStatus
+  error     String?
+  sentAt    DateTime @default(now())
+  
+  @@map("email_logs")
+}
+
+model Property {
+  id              String   @id @default(cuid())
+  title           String
+  description     String
+  address         String
+  city            String   @default("New York")
+  borough         Borough
+  zipCode         String
+  latitude        Float?
+  longitude       Float?
+  propertyType    PropertyType
+  bedrooms        Int
+  bathrooms       Float
+  squareFeet      Int?
+  rentAmount      Int
+  securityDeposit Int
+  brokerFee       Int      @default(0)
+  availableDate   DateTime
+  status          PropertyStatus @default(AVAILABLE)
+  isRentStabilized Boolean @default(false)
+  isBrokerFee     Boolean @default(false)
+  amenities       String[]
+  photos          String[]
+  virtualTourUrl  String?
+  petPolicy       String?
+  smokingPolicy   String?
+  leaseTerm       String?
+  utilitiesIncluded String[]
+  parkingAvailable Boolean @default(false)
+  furnished       Boolean @default(false)
+  
+  // FARE Act Compliance Fields
+  landlordBrokerFee Int    @default(0)
+  tenantFees       Json?   // Itemized tenant fees
+  feeDisclosure    String? // FARE Act disclosure text
+  brokerLicense    String?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // Foreign Keys
+  ownerId         String
+  owner           User @relation(fields: [ownerId], references: [id])
+  
+  // Relationships
+  applications    Application[]
+  messages        Message[]
+  savedBy         SavedProperty[]
+  maintenanceRequests MaintenanceRequest[]
+  leases          Lease[]
+  inspections     PropertyInspection[]
+  
+  @@map("properties")
+}
+
+model Application {
+  id              String   @id @default(cuid())
+  status          ApplicationStatus @default(PENDING)
+  moveInDate      DateTime
+  employmentInfo  Json
+  references      Json
+  documents       String[]
+  creditScore     Int?
+  monthlyIncome   Int?
+  notes           String?
+  landlordNotes   String?
+  
+  // Additional Application Fields
+  previousAddress String?
+  reasonForMoving String?
+  pets            Json?
+  vehicles        Json?
+  emergencyContact Json?
+  
+  // Background Check Results
+  backgroundCheckId String?
+  backgroundCheckStatus String @default("PENDING")
+  backgroundCheckResults Json?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // Foreign Keys
+  applicantId     String
+  propertyId      String
+  applicant       User @relation(fields: [applicantId], references: [id])
+  property        Property @relation(fields: [propertyId], references: [id])
+  
+  // Relationships
+  payments        Payment[]
+  lease           Lease?
+  
+  @@unique([applicantId, propertyId])
+  @@map("applications")
+}
+
+model Lease {
+  id              String   @id @default(cuid())
+  startDate       DateTime
+  endDate         DateTime
+  monthlyRent     Int
+  securityDeposit Int
+  terms           Json
+  status          LeaseStatus @default(DRAFT)
+  signedAt        DateTime?
+  documentUrl     String?
+  
+  // Foreign Keys
+  applicationId   String   @unique
+  tenantId        String
+  landlordId      String
+  
+  application     Application @relation(fields: [applicationId], references: [id])
+  tenant          User @relation(fields: [tenantId], references: [id])
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@map("leases")
+}
+
+model Message {
+  id          String   @id @default(cuid())
+  content     String
+  messageType MessageType @default(TEXT)
+  attachments String[]
+  isRead      Boolean  @default(false)
+  isSystem    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  
+  // Foreign Keys
+  senderId    String
+  receiverId  String
+  propertyId  String?
+  
+  sender      User @relation("SentMessages", fields: [senderId], references: [id])
+  receiver    User @relation("ReceivedMessages", fields: [receiverId], references: [id])
+  property    Property? @relation(fields: [propertyId], references: [id])
+  
+  @@map("messages")
+}
+
+model Payment {
+  id              String   @id @default(cuid())
+  amount          Int
+  type            PaymentType
+  status          PaymentStatus @default(PENDING)
+  stripePaymentId String?
+  description     String?
+  dueDate         DateTime?
+  paidDate        DateTime?
+  refundedDate    DateTime?
+  refundAmount    Int?
+  createdAt       DateTime @default(now())
+  
+  // Foreign Keys
+  payerId         String
+  applicationId   String?
+  
+  payer           User @relation(fields: [payerId], references: [id])
+  application     Application? @relation(fields: [applicationId], references: [id])
+  
+  @@map("payments")
+}
+
+model Review {
+  id          String   @id @default(cuid())
+  rating      Int      @map("rating")
+  comment     String?
+  reviewType  ReviewType
+  response    String?
+  createdAt   DateTime @default(now())
+  
+  // Foreign Keys
+  reviewerId  String
+  revieweeId  String
+  propertyId  String?
+  
+  reviewer    User @relation(fields: [reviewerId], references: [id])
+  
+  @@map("reviews")
+}
+
+model SavedProperty {
+  id          String   @id @default(cuid())
+  notes       String?
+  createdAt   DateTime @default(now())
+  
+  // Foreign Keys
+  userId      String
+  propertyId  String
+  
+  user        User @relation(fields: [userId], references: [id])
+  property    Property @relation(fields: [propertyId], references: [id])
+  
+  @@unique([userId, propertyId])
+  @@map("saved_properties")
+}
+
+model MaintenanceRequest {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  priority    Priority @default(MEDIUM)
+  status      MaintenanceStatus @default(PENDING)
+  photos      String[]
+  cost        Int?
+  scheduledDate DateTime?
+  completedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Foreign Keys
+  propertyId  String
+  tenantId    String
+  
+  property    Property @relation(fields: [propertyId], references: [id])
+  tenant      User @relation("TenantRequests", fields: [tenantId], references: [id])
+  
+  @@map("maintenance_requests")
+}
+
+model PropertyInspection {
+  id           String   @id @default(cuid())
+  type         InspectionType
+  scheduledDate DateTime
+  completedDate DateTime?
+  status       InspectionStatus @default(SCHEDULED)
+  notes        String?
+  photos       String[]
+  report       Json?
+  
+  // Foreign Keys
+  propertyId   String
+  inspectorId  String?
+  
+  property     Property @relation(fields: [propertyId], references: [id])
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  @@map("property_inspections")
+}
+
+model FareActCompliance {
+  id                String   @id @default(cuid())
+  propertyId        String   @unique
+  disclosureProvided Boolean @default(false)
+  feesDisclosed     Json
+  brokerRelationship String
+  complianceDate    DateTime @default(now())
+  violations        Json?
+  
+  property          Property @relation(fields: [propertyId], references: [id])
+  
+  @@map("fare_act_compliance")
+}
+
+model BackgroundCheck {
+  id              String   @id @default(cuid())
+  userId          String
+  provider        String   // "checkr", "experian", etc.
+  externalId      String?  // Provider's ID
+  status          BackgroundCheckStatus @default(PENDING)
+  results         Json?
+  reportUrl       String?
+  requestedAt     DateTime @default(now())
+  completedAt     DateTime?
+  
+  @@map("background_checks")
+}
+
+model ActivityLog {
+  id          String   @id @default(cuid())
+  userId      String?
+  action      String
+  entity      String
+  entityId    String?
+  details     Json?
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+  
+  @@map("activity_logs")
+}
+
+model SystemSettings {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String
+  description String?
+  updatedAt   DateTime @updatedAt
+  
+  @@map("system_settings")
+}
+
+// Enums
+enum UserType {
+  RENTER
+  LANDLORD
+  PROPERTY_MANAGER
+  ADMIN
+}
+
+enum VerificationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum EmailStatus {
+  SENT
+  FAILED
+  BOUNCED
+}
+
+enum Borough {
+  MANHATTAN
+  BROOKLYN
+  QUEENS
+  BRONX
+  STATEN_ISLAND
+}
+
+enum PropertyType {
+  APARTMENT
+  HOUSE
+  CONDO
+  STUDIO
+  TOWNHOUSE
+  LOFT
+}
+
+enum PropertyStatus {
+  AVAILABLE
+  PENDING
+  RENTED
+  INACTIVE
+  MAINTENANCE
+}
+
+enum ApplicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  WITHDRAWN
+}
+
+enum LeaseStatus {
+  DRAFT
+  PENDING_SIGNATURE
+  ACTIVE
+  EXPIRED
+  TERMINATED
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  DOCUMENT
+  SYSTEM
+}
+
+enum PaymentType {
+  APPLICATION_FEE
+  SECURITY_DEPOSIT
+  FIRST_MONTH_RENT
+  MONTHLY_RENT
+  LATE_FEE
+  BROKER_FEE
+  OTHER
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+  DISPUTED
+}
+
+enum ReviewType {
+  TENANT_TO_LANDLORD
+  LANDLORD_TO_TENANT
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum MaintenanceStatus {
+  PENDING
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum InspectionType {
+  MOVE_IN
+  MOVE_OUT
+  ANNUAL
+  MAINTENANCE
+  COMPLIANCE
+}
+
+enum InspectionStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum BackgroundCheckStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+}

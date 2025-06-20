@@ -15,19 +15,24 @@ import {
   ArrowUpRight,
   TrendingUp,
   Calendar,
-  Star
+  Star,
+  Wrench,
+  AlertTriangle,
+  Clock
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PropertyCard } from '@/components/PropertyCard';
 import { Navbar } from '@/components/Navbar';
 import { useAuth } from '@/contexts/AuthContext';
-import { userService, propertyService, applicationService } from '@/services/api';
+import { userService, propertyService, applicationService, maintenanceService } from '@/services/api';
 import { formatCurrency, formatRelativeTime } from '@/lib/utils';
 
 export default function DashboardPage() {
   const { user } = useAuth();
   const [stats, setStats] = useState<any>(null);
+  const [maintenanceStats, setMaintenanceStats] = useState<any>(null);
   const [recentProperties, setRecentProperties] = useState([]);
+  const [recentMaintenanceRequests, setRecentMaintenanceRequests] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -36,15 +41,25 @@ export default function DashboardPage() {
 
   const loadDashboardData = async () => {
     try {
-      const [statsResponse, propertiesResponse] = await Promise.all([
+      const [statsResponse, propertiesResponse, maintenanceStatsResponse] = await Promise.all([
         userService.getDashboardStats(),
         user?.userType === 'LANDLORD' || user?.userType === 'PROPERTY_MANAGER'
           ? propertyService.getMyProperties()
-          : propertyService.getSavedProperties()
+          : propertyService.getSavedProperties(),
+        maintenanceService.getStats()
       ]);
       
       setStats(statsResponse.data);
       setRecentProperties(propertiesResponse.data.slice(0, 3));
+      setMaintenanceStats(maintenanceStatsResponse.data);
+
+      // Load recent maintenance requests
+      try {
+        const maintenanceResponse = await maintenanceService.getRequests({ limit: 3 });
+        setRecentMaintenanceRequests(maintenanceResponse.data);
+      } catch (error) {
+        console.error('Error loading maintenance requests:', error);
+      }
     } catch (error) {
       console.error('Error loading dashboard data:', error);
     } finally {
@@ -88,8 +103,8 @@ export default function DashboardPage() {
           </h1>
           <p className="text-lg text-gray-600">
             {isLandlord 
-              ? 'Manage your properties and tenant applications'
-              : 'Track your applications and discover new places'
+              ? 'Manage your properties, maintenance requests, and tenant applications'
+              : 'Track your applications, maintenance requests, and discover new places'
             }
           </p>
         </div>
@@ -135,6 +150,24 @@ export default function DashboardPage() {
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                 <div className="flex items-center justify-between">
                   <div>
+                    <p className="text-sm font-medium text-gray-600">Maintenance</p>
+                    <p className="text-3xl font-bold text-gray-900">{maintenanceStats?.pendingRequests || 0}</p>
+                    <p className="text-xs text-gray-500">Pending requests</p>
+                  </div>
+                  <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
+                    <Wrench className="h-6 w-6 text-orange-600" />
+                  </div>
+                </div>
+                <div className="mt-4">
+                  <Link href="/maintenance" className="text-sm text-orange-600 hover:text-orange-700 font-medium">
+                    View requests →
+                  </Link>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <div className="flex items-center justify-between">
+                  <div>
                     <p className="text-sm font-medium text-gray-600">Total Revenue</p>
                     <p className="text-3xl font-bold text-gray-900">
                       {formatCurrency(stats?.totalRevenue || 0)}
@@ -145,25 +178,8 @@ export default function DashboardPage() {
                   </div>
                 </div>
                 <div className="mt-4">
-                  <Link href="/earnings" className="text-sm text-purple-600 hover:text-purple-700 font-medium">
+                  <Link href="/dashboard/payments" className="text-sm text-purple-600 hover:text-purple-700 font-medium">
                     View earnings →
-                  </Link>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Messages</p>
-                    <p className="text-3xl font-bold text-gray-900">12</p>
-                  </div>
-                  <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
-                    <MessageSquare className="h-6 w-6 text-orange-600" />
-                  </div>
-                </div>
-                <div className="mt-4">
-                  <Link href="/messages" className="text-sm text-orange-600 hover:text-orange-700 font-medium">
-                    View messages →
                   </Link>
                 </div>
               </div>
@@ -207,16 +223,17 @@ export default function DashboardPage() {
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-gray-600">Messages</p>
-                    <p className="text-3xl font-bold text-gray-900">{stats?.messagesCount || 0}</p>
+                    <p className="text-sm font-medium text-gray-600">Maintenance</p>
+                    <p className="text-3xl font-bold text-gray-900">{maintenanceStats?.totalRequests || 0}</p>
+                    <p className="text-xs text-gray-500">Total requests</p>
                   </div>
-                  <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                    <MessageSquare className="h-6 w-6 text-green-600" />
+                  <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
+                    <Wrench className="h-6 w-6 text-orange-600" />
                   </div>
                 </div>
                 <div className="mt-4">
-                  <Link href="/messages" className="text-sm text-green-600 hover:text-green-700 font-medium">
-                    View messages →
+                  <Link href="/maintenance" className="text-sm text-orange-600 hover:text-orange-700 font-medium">
+                    View requests →
                   </Link>
                 </div>
               </div>
@@ -315,8 +332,81 @@ export default function DashboardPage() {
             )}
           </div>
 
-          {/* Recent Activity */}
+          {/* Recent Maintenance Requests */}
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-semibold text-gray-900">
+                Recent Maintenance
+              </h2>
+              <Button asChild variant="outline" size="sm">
+                <Link href="/maintenance">
+                  View All
+                </Link>
+              </Button>
+            </div>
+            
+            {recentMaintenanceRequests.length > 0 ? (
+              <div className="space-y-4">
+                {recentMaintenanceRequests.slice(0, 3).map((request: any) => (
+                  <div key={request.id} className="border border-gray-200 rounded-lg p-4">
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex-1">
+                        <h3 className="font-medium text-gray-900">{request.title}</h3>
+                        <p className="text-sm text-gray-600">{request.property.title}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {request.priority === 'URGENT' && (
+                          <AlertTriangle className="h-4 w-4 text-red-500" />
+                        )}
+                        <span className={`text-xs px-2 py-1 rounded-full ${
+                          request.status === 'PENDING' 
+                            ? 'bg-yellow-100 text-yellow-800'
+                            : request.status === 'IN_PROGRESS'
+                            ? 'bg-blue-100 text-blue-800'
+                            : request.status === 'COMPLETED'
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-gray-100 text-gray-800'
+                        }`}>
+                          {request.status.replace('_', ' ')}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center text-sm text-gray-500">
+                      <Clock className="h-4 w-4 mr-1" />
+                      {formatRelativeTime(request.createdAt)}
+                      {isLandlord && (
+                        <>
+                          <span className="mx-2">•</span>
+                          <span>{request.tenant.firstName} {request.tenant.lastName}</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <Wrench className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  No maintenance requests
+                </h3>
+                <p className="text-gray-600 mb-4">
+                  {isLandlord 
+                    ? 'No maintenance requests have been submitted yet.'
+                    : 'You haven\'t submitted any maintenance requests yet.'
+                  }
+                </p>
+                <Button asChild>
+                  <Link href="/maintenance">
+                    {isLandlord ? 'View Requests' : 'Submit Request'}
+                  </Link>
+                </Button>
+              </div>
+            )}
+          </div>
+
+          {/* Recent Activity */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 lg:col-span-2">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-semibold text-gray-900">
                 Recent Activity
@@ -339,7 +429,7 @@ export default function DashboardPage() {
                       <div className="flex items-center justify-between">
                         <p className="text-sm font-medium text-gray-900">
                           {isLandlord 
-                            ? `${application.applicant.firstName} ${application.applicant.lastName}`
+                            ? `${application.applicant?.firstName} ${application.applicant?.lastName}`
                             : application.property.title
                           }
                         </p>
@@ -402,13 +492,13 @@ export default function DashboardPage() {
                   </Link>
                 </Button>
                 <Button asChild variant="outline" className="h-auto p-4 flex-col space-y-2">
-                  <Link href="/messages">
-                    <MessageSquare className="h-6 w-6" />
-                    <span>Messages</span>
+                  <Link href="/maintenance">
+                    <Wrench className="h-6 w-6" />
+                    <span>Maintenance</span>
                   </Link>
                 </Button>
                 <Button asChild variant="outline" className="h-auto p-4 flex-col space-y-2">
-                  <Link href="/earnings">
+                  <Link href="/dashboard/payments">
                     <TrendingUp className="h-6 w-6" />
                     <span>View Earnings</span>
                   </Link>
@@ -435,9 +525,9 @@ export default function DashboardPage() {
                   </Link>
                 </Button>
                 <Button asChild variant="outline" className="h-auto p-4 flex-col space-y-2">
-                  <Link href="/messages">
-                    <MessageSquare className="h-6 w-6" />
-                    <span>Messages</span>
+                  <Link href="/maintenance">
+                    <Wrench className="h-6 w-6" />
+                    <span>Maintenance</span>
                   </Link>
                 </Button>
               </>

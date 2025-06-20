@@ -35,12 +35,22 @@ model User {
   emergencyContact  Json?
   backgroundCheckStatus String @default("PENDING")
   
+  // Stripe Connect Fields for Landlords
+  stripeAccountId   String?   // Stripe Connect account ID
+  stripeAccountStatus String @default("PENDING") // PENDING, VERIFIED, RESTRICTED, SUSPENDED
+  stripeOnboardingComplete Boolean @default(false)
+  stripeChargesEnabled Boolean @default(false)
+  stripePayoutsEnabled Boolean @default(false)
+  bankAccountLast4  String?   // Last 4 digits of bank account
+  defaultPaymentMethod String? // For renters making payments
+  
   // Relationships
   properties        Property[]
   applications      Application[]
   sentMessages      Message[] @relation("SentMessages")
   receivedMessages  Message[] @relation("ReceivedMessages")
-  payments          Payment[]
+  payments          Payment[] @relation("PayerPayments")
+  receivedPayments  Payment[] @relation("ReceiverPayments")
   reviews           Review[]
   savedProperties   SavedProperty[]
   emailVerifications EmailVerification[]
@@ -236,18 +246,25 @@ model Payment {
   type            PaymentType
   status          PaymentStatus @default(PENDING)
   stripePaymentId String?
+  stripeTransferId String?  // For Stripe Connect transfers
   description     String?
   dueDate         DateTime?
   paidDate        DateTime?
   refundedDate    DateTime?
   refundAmount    Int?
+  transferredDate DateTime? // When funds transferred to landlord
+  platformFee     Int?      // Platform fee (2.9% of amount)
+  stripeFee       Int?      // Stripe processing fee
+  landlordAmount  Int?      // Amount after fees transferred to landlord
   createdAt       DateTime @default(now())
   
   // Foreign Keys
   payerId         String
+  receiverId      String?   // Landlord receiving the payment via Stripe Connect
   applicationId   String?
   
-  payer           User @relation(fields: [payerId], references: [id])
+  payer           User @relation("PayerPayments", fields: [payerId], references: [id])
+  receiver        User? @relation("ReceiverPayments", fields: [receiverId], references: [id])
   application     Application? @relation(fields: [applicationId], references: [id])
   
   @@map("payments")
@@ -340,8 +357,6 @@ model FareActCompliance {
   brokerRelationship String
   complianceDate    DateTime @default(now())
   violations        Json?
-  
-  property          Property @relation(fields: [propertyId], references: [id])
   
   @@map("fare_act_compliance")
 }
@@ -458,15 +473,20 @@ enum PaymentType {
   MONTHLY_RENT
   LATE_FEE
   BROKER_FEE
+  BACKGROUND_CHECK_FEE
+  DEPOSIT_TRANSFER
+  RENT_TRANSFER
   OTHER
 }
 
 enum PaymentStatus {
   PENDING
+  PROCESSING
   COMPLETED
   FAILED
   REFUNDED
   DISPUTED
+  TRANSFERRED
 }
 
 enum ReviewType {

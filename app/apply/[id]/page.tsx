@@ -15,7 +15,10 @@ import {
   Home,
   CreditCard,
   AlertCircle,
-  Loader2
+  Loader2,
+  X,
+  Download,
+  Trash2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -154,6 +157,22 @@ export default function ApplicationPage() {
     }));
   };
 
+  const addReference = () => {
+    setApplicationData(prev => ({
+      ...prev,
+      references: [...prev.references, { name: '', relationship: '', phone: '', email: '' }]
+    }));
+  };
+
+  const removeReference = (index: number) => {
+    if (applicationData.references.length > 2) {
+      setApplicationData(prev => ({
+        ...prev,
+        references: prev.references.filter((_, i) => i !== index)
+      }));
+    }
+  };
+
   const handleFileUpload = async (file: File, documentType: string) => {
     setUploadingFiles(prev => [...prev, documentType]);
     
@@ -194,6 +213,26 @@ export default function ApplicationPage() {
       });
     } finally {
       setUploadingFiles(prev => prev.filter(type => type !== documentType));
+    }
+  };
+
+  const removeDocument = (documentType: string, index?: number) => {
+    if (index !== undefined && (documentType === 'payStubs' || documentType === 'bankStatements')) {
+      setApplicationData(prev => ({
+        ...prev,
+        documents: {
+          ...prev.documents,
+          [documentType]: (prev.documents[documentType as keyof typeof prev.documents] as string[])?.filter((_, i) => i !== index)
+        }
+      }));
+    } else {
+      setApplicationData(prev => ({
+        ...prev,
+        documents: {
+          ...prev.documents,
+          [documentType]: undefined
+        }
+      }));
     }
   };
 
@@ -495,6 +534,365 @@ export default function ApplicationPage() {
                     value={applicationData.employmentInfo.workAddress}
                     onChange={(e) => updateNestedData('employmentInfo', 'workAddress', e.target.value)}
                   />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Step 3: Documents */}
+          {currentStep === 3 && (
+            <div className="space-y-6">
+              <h2 className="text-2xl font-semibold text-gray-900">Required Documents</h2>
+              
+              <div className="space-y-8">
+                {/* ID Document */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Government-issued ID *
+                  </label>
+                  <p className="text-xs text-gray-500 mb-4">
+                    Driver's license, passport, or state ID
+                  </p>
+                  
+                  {applicationData.documents.idDocument ? (
+                    <div className="flex items-center justify-between p-4 bg-green-50 border border-green-200 rounded-lg">
+                      <div className="flex items-center">
+                        <FileText className="h-5 w-5 text-green-600 mr-2" />
+                        <span className="text-sm text-green-800">ID document uploaded</span>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeDocument('idDocument')}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                      <Upload className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                      <p className="text-sm text-gray-600 mb-2">Click to upload or drag and drop</p>
+                      <input
+                        type="file"
+                        accept="image/*,.pdf"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) handleFileUpload(file, 'idDocument');
+                        }}
+                        className="hidden"
+                        id="id-upload"
+                      />
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        asChild
+                        disabled={uploadingFiles.includes('idDocument')}
+                      >
+                        <label htmlFor="id-upload" className="cursor-pointer">
+                          {uploadingFiles.includes('idDocument') ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              Uploading...
+                            </>
+                          ) : (
+                            'Choose File'
+                          )}
+                        </label>
+                      </Button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Pay Stubs */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Recent Pay Stubs * (Last 2-3 months)
+                  </label>
+                  
+                  <div className="space-y-2">
+                    {applicationData.documents.payStubs?.map((stub, index) => (
+                      <div key={index} className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
+                        <div className="flex items-center">
+                          <FileText className="h-4 w-4 text-green-600 mr-2" />
+                          <span className="text-sm text-green-800">Pay stub {index + 1}</span>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeDocument('payStubs', index)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                    
+                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
+                      <Upload className="h-6 w-6 text-gray-400 mx-auto mb-2" />
+                      <input
+                        type="file"
+                        accept="image/*,.pdf"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) handleFileUpload(file, 'payStubs');
+                        }}
+                        className="hidden"
+                        id="paystub-upload"
+                      />
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        asChild
+                        disabled={uploadingFiles.includes('payStubs')}
+                      >
+                        <label htmlFor="paystub-upload" className="cursor-pointer">
+                          {uploadingFiles.includes('payStubs') ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              Uploading...
+                            </>
+                          ) : (
+                            'Add Pay Stub'
+                          )}
+                        </label>
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bank Statements */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Bank Statements (Optional but recommended)
+                  </label>
+                  
+                  <div className="space-y-2">
+                    {applicationData.documents.bankStatements?.map((statement, index) => (
+                      <div key={index} className="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                        <div className="flex items-center">
+                          <FileText className="h-4 w-4 text-blue-600 mr-2" />
+                          <span className="text-sm text-blue-800">Bank statement {index + 1}</span>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeDocument('bankStatements', index)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                    
+                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
+                      <Upload className="h-6 w-6 text-gray-400 mx-auto mb-2" />
+                      <input
+                        type="file"
+                        accept="image/*,.pdf"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) handleFileUpload(file, 'bankStatements');
+                        }}
+                        className="hidden"
+                        id="bank-upload"
+                      />
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        asChild
+                        disabled={uploadingFiles.includes('bankStatements')}
+                      >
+                        <label htmlFor="bank-upload" className="cursor-pointer">
+                          {uploadingFiles.includes('bankStatements') ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              Uploading...
+                            </>
+                          ) : (
+                            'Add Bank Statement'
+                          )}
+                        </label>
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Step 4: References */}
+          {currentStep === 4 && (
+            <div className="space-y-6">
+              <h2 className="text-2xl font-semibold text-gray-900">References</h2>
+              <p className="text-gray-600">Please provide at least 2 references who can vouch for your character and reliability.</p>
+              
+              <div className="space-y-6">
+                {applicationData.references.map((reference, index) => (
+                  <div key={index} className="bg-gray-50 rounded-lg p-6 relative">
+                    <div className="flex justify-between items-start mb-4">
+                      <h3 className="text-lg font-medium text-gray-900">Reference {index + 1}</h3>
+                      {applicationData.references.length > 2 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeReference(index)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Full Name *
+                        </label>
+                        <Input
+                          placeholder="Reference's full name"
+                          value={reference.name}
+                          onChange={(e) => updateReference(index, 'name', e.target.value)}
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Relationship *
+                        </label>
+                        <Input
+                          placeholder="e.g., Previous landlord, employer, friend"
+                          value={reference.relationship}
+                          onChange={(e) => updateReference(index, 'relationship', e.target.value)}
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Phone Number *
+                        </label>
+                        <Input
+                          placeholder="(555) 123-4567"
+                          value={reference.phone}
+                          onChange={(e) => updateReference(index, 'phone', e.target.value)}
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Email Address
+                        </label>
+                        <Input
+                          type="email"
+                          placeholder="reference@email.com"
+                          value={reference.email}
+                          onChange={(e) => updateReference(index, 'email', e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                
+                <Button
+                  variant="outline"
+                  onClick={addReference}
+                  className="w-full"
+                >
+                  Add Another Reference
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Step 5: Review and Consent */}
+          {currentStep === 5 && (
+            <div className="space-y-8">
+              <h2 className="text-2xl font-semibold text-gray-900">Review & Submit</h2>
+              
+              {/* Application Summary */}
+              <div className="space-y-6">
+                <div className="bg-gray-50 rounded-lg p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Application Summary</h3>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="text-gray-600">Move-in Date:</span>
+                      <span className="ml-2 font-medium">{formatDate(applicationData.moveInDate)}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-600">Monthly Income:</span>
+                      <span className="ml-2 font-medium">{formatCurrency(applicationData.monthlyIncome)}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-600">Employer:</span>
+                      <span className="ml-2 font-medium">{applicationData.employmentInfo.employer}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-600">Position:</span>
+                      <span className="ml-2 font-medium">{applicationData.employmentInfo.position}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-600">Documents:</span>
+                      <span className="ml-2 font-medium">
+                        {Object.values(applicationData.documents).filter(Boolean).length} uploaded
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-gray-600">References:</span>
+                      <span className="ml-2 font-medium">{applicationData.references.length} provided</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Background Check Consent */}
+                <div className="border border-gray-200 rounded-lg p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Background Check Authorization</h3>
+                  
+                  <div className="space-y-4">
+                    <label className="flex items-start space-x-3">
+                      <input
+                        type="checkbox"
+                        checked={applicationData.creditCheckConsent}
+                        onChange={(e) => updateApplicationData('creditCheckConsent', e.target.checked)}
+                        className="mt-1"
+                      />
+                      <div className="text-sm">
+                        <span className="font-medium text-gray-900">Credit Check Authorization *</span>
+                        <p className="text-gray-600 mt-1">
+                          I authorize the landlord to obtain my credit report for the purpose of evaluating this rental application. 
+                          There will be a $35 fee for the credit check.
+                        </p>
+                      </div>
+                    </label>
+                    
+                    <label className="flex items-start space-x-3">
+                      <input
+                        type="checkbox"
+                        checked={applicationData.backgroundCheckConsent}
+                        onChange={(e) => updateApplicationData('backgroundCheckConsent', e.target.checked)}
+                        className="mt-1"
+                      />
+                      <div className="text-sm">
+                        <span className="font-medium text-gray-900">Background Check Authorization *</span>
+                        <p className="text-gray-600 mt-1">
+                          I authorize the landlord to conduct a background check for the purpose of evaluating this rental application.
+                          This may include criminal history and eviction records.
+                        </p>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Terms and Conditions */}
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
+                  <div className="flex">
+                    <AlertCircle className="h-5 w-5 text-yellow-600 mr-3 flex-shrink-0 mt-0.5" />
+                    <div className="text-sm">
+                      <h4 className="font-medium text-yellow-800 mb-2">Important Information</h4>
+                      <ul className="text-yellow-700 space-y-1">
+                        <li>• Application fees are non-refundable</li>
+                        <li>• Background and credit checks will be processed within 24-48 hours</li>
+                        <li>• You will be notified of the decision via email and platform messaging</li>
+                        <li>• Submitting an application does not guarantee approval</li>
+                      </ul>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

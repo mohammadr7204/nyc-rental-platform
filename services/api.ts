@@ -141,6 +141,53 @@ const MOCK_APPLICATIONS = [
   }
 ];
 
+const MOCK_MAINTENANCE_REQUESTS = [
+  {
+    id: '1',
+    title: 'Leaky Kitchen Faucet',
+    description: 'The kitchen faucet has been leaking for the past few days. It needs immediate attention.',
+    priority: 'HIGH',
+    status: 'PENDING',
+    photos: ['/mock-maintenance-photo1.jpg'],
+    createdAt: '2025-06-19T10:00:00Z',
+    property: {
+      id: '1',
+      title: 'Luxury 2BR in Manhattan',
+      address: '123 Park Avenue, Manhattan, NY 10016'
+    },
+    tenant: {
+      id: 'tenant1',
+      firstName: 'John',
+      lastName: 'Doe',
+      email: 'john.doe@email.com',
+      phone: '(555) 123-4567'
+    }
+  },
+  {
+    id: '2',
+    title: 'AC Unit Not Working',
+    description: 'The air conditioning unit in the bedroom stopped working yesterday.',
+    priority: 'URGENT',
+    status: 'IN_PROGRESS',
+    photos: [],
+    cost: 250,
+    scheduledDate: '2025-06-21T14:00:00Z',
+    createdAt: '2025-06-18T15:30:00Z',
+    property: {
+      id: '2',
+      title: 'Brooklyn Heights Studio',
+      address: '456 Hicks Street, Brooklyn, NY 11201'
+    },
+    tenant: {
+      id: 'tenant2',
+      firstName: 'Jane',
+      lastName: 'Smith',
+      email: 'jane.smith@email.com',
+      phone: '(555) 987-6543'
+    }
+  }
+];
+
 // Auth Service
 export const authService = {
   login: async (credentials: { email: string; password: string }) => {
@@ -698,6 +745,146 @@ export const paymentService = {
     } catch (error) {
       // Mock response for development
       return { data: [] };
+    }
+  },
+};
+
+// Maintenance Service
+export const maintenanceService = {
+  createRequest: async (data: {
+    propertyId: string;
+    title: string;
+    description: string;
+    priority?: string;
+    photos?: File[];
+  }) => {
+    try {
+      const formData = new FormData();
+      formData.append('propertyId', data.propertyId);
+      formData.append('title', data.title);
+      formData.append('description', data.description);
+      formData.append('priority', data.priority || 'MEDIUM');
+      
+      if (data.photos) {
+        data.photos.forEach(photo => {
+          formData.append('photos', photo);
+        });
+      }
+
+      const response = await api.post('/maintenance', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      return response.data;
+    } catch (error) {
+      // Mock response for development
+      return {
+        data: {
+          id: Date.now().toString(),
+          ...data,
+          photos: data.photos ? data.photos.map(photo => `/mock-uploads/${photo.name}`) : [],
+          status: 'PENDING',
+          createdAt: new Date().toISOString(),
+          property: {
+            id: data.propertyId,
+            title: 'Mock Property',
+            address: 'Mock Address'
+          },
+          tenant: {
+            id: 'current-user',
+            firstName: 'John',
+            lastName: 'Doe',
+            email: 'john@example.com'
+          }
+        }
+      };
+    }
+  },
+
+  getRequests: async (params?: {
+    propertyId?: string;
+    status?: string;
+    priority?: string;
+    page?: number;
+    limit?: number;
+  }) => {
+    try {
+      const response = await api.get('/maintenance', { params });
+      return response.data;
+    } catch (error) {
+      // Mock response for development
+      return {
+        data: MOCK_MAINTENANCE_REQUESTS,
+        pagination: {
+          page: 1,
+          limit: 10,
+          total: MOCK_MAINTENANCE_REQUESTS.length,
+          pages: 1
+        }
+      };
+    }
+  },
+
+  getRequest: async (id: string) => {
+    try {
+      const response = await api.get(`/maintenance/${id}`);
+      return response.data;
+    } catch (error) {
+      // Mock response for development
+      const mockRequest = MOCK_MAINTENANCE_REQUESTS.find(req => req.id === id);
+      return { data: mockRequest || MOCK_MAINTENANCE_REQUESTS[0] };
+    }
+  },
+
+  updateRequest: async (id: string, data: {
+    status?: string;
+    cost?: number;
+    scheduledDate?: string;
+    notes?: string;
+  }) => {
+    try {
+      const response = await api.patch(`/maintenance/${id}`, data);
+      return response.data;
+    } catch (error) {
+      // Mock response for development
+      const mockRequest = MOCK_MAINTENANCE_REQUESTS.find(req => req.id === id);
+      return {
+        data: {
+          ...mockRequest,
+          ...data,
+          updatedAt: new Date().toISOString()
+        }
+      };
+    }
+  },
+
+  deleteRequest: async (id: string) => {
+    try {
+      const response = await api.delete(`/maintenance/${id}`);
+      return response.data;
+    } catch (error) {
+      // Mock response for development
+      return { data: { message: 'Maintenance request deleted successfully' } };
+    }
+  },
+
+  getStats: async () => {
+    try {
+      const response = await api.get('/maintenance/stats/summary');
+      return response.data;
+    } catch (error) {
+      // Mock response for development
+      return {
+        data: {
+          totalRequests: 12,
+          pendingRequests: 5,
+          inProgressRequests: 3,
+          completedRequests: 4,
+          urgentRequests: 2,
+          avgResponseTime: 24 // hours
+        }
+      };
     }
   },
 };

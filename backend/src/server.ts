@@ -51,6 +51,7 @@ import uploadRoutes from './routes/upload';
 import searchRoutes from './routes/search';
 import adminRoutes from './routes/admin';
 import fareActRoutes from './routes/fareAct';
+import maintenanceRoutes from './routes/maintenance';
 
 // Import middleware
 import { authenticateToken } from './middleware/auth';
@@ -223,6 +224,7 @@ app.use('/api/properties', propertyRoutes);
 app.use('/api/applications', authenticateToken, applicationRoutes);
 app.use('/api/messages', authenticateToken, messageRoutes);
 app.use('/api/payments', authenticateToken, paymentRoutes);
+app.use('/api/maintenance', authenticateToken, maintenanceRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/fare-act', fareActRoutes);
 
@@ -282,6 +284,12 @@ if (features.apiDocs) {
           description: 'Payment processing',
           protected: true,
           methods: ['POST /create-payment-intent', 'POST /confirm-payment', 'GET /history']
+        },
+        maintenance: {
+          path: '/api/maintenance',
+          description: 'Maintenance request management',
+          protected: true,
+          methods: ['POST /', 'GET /', 'GET /:id', 'PATCH /:id', 'DELETE /:id', 'GET /stats/summary']
         },
         search: {
           path: '/api/search',

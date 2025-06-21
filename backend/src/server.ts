@@ -52,6 +52,7 @@ import searchRoutes from './routes/search';
 import adminRoutes from './routes/admin';
 import fareActRoutes from './routes/fareAct';
 import maintenanceRoutes from './routes/maintenance';
+import vendorRoutes from './routes/vendors';
 
 // Import middleware
 import { authenticateToken } from './middleware/auth';
@@ -225,6 +226,7 @@ app.use('/api/applications', authenticateToken, applicationRoutes);
 app.use('/api/messages', authenticateToken, messageRoutes);
 app.use('/api/payments', authenticateToken, paymentRoutes);
 app.use('/api/maintenance', authenticateToken, maintenanceRoutes);
+app.use('/api/vendors', authenticateToken, vendorRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/fare-act', fareActRoutes);
 
@@ -290,6 +292,12 @@ if (features.apiDocs) {
           description: 'Maintenance request management',
           protected: true,
           methods: ['POST /', 'GET /', 'GET /:id', 'PATCH /:id', 'DELETE /:id', 'GET /stats/summary']
+        },
+        vendors: {
+          path: '/api/vendors',
+          description: 'Vendor management for maintenance contractors',
+          protected: true,
+          methods: ['GET /', 'GET /:id', 'POST /', 'PUT /:id', 'DELETE /:id', 'POST /:id/services', 'DELETE /:vendorId/services/:serviceId', 'POST /:id/reviews', 'PUT /assign/:maintenanceId']
         },
         search: {
           path: '/api/search',

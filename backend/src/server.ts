@@ -53,6 +53,7 @@ import adminRoutes from './routes/admin';
 import fareActRoutes from './routes/fareAct';
 import maintenanceRoutes from './routes/maintenance';
 import vendorRoutes from './routes/vendors';
+import analyticsRoutes from './routes/analytics';
 
 // Import middleware
 import { authenticateToken } from './middleware/auth';
@@ -227,6 +228,7 @@ app.use('/api/messages', authenticateToken, messageRoutes);
 app.use('/api/payments', authenticateToken, paymentRoutes);
 app.use('/api/maintenance', authenticateToken, maintenanceRoutes);
 app.use('/api/vendors', authenticateToken, vendorRoutes);
+app.use('/api/analytics', authenticateToken, analyticsRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/fare-act', fareActRoutes);
 
@@ -298,6 +300,12 @@ if (features.apiDocs) {
           description: 'Vendor management for maintenance contractors',
           protected: true,
           methods: ['GET /', 'GET /:id', 'POST /', 'PUT /:id', 'DELETE /:id', 'POST /:id/services', 'DELETE /:vendorId/services/:serviceId', 'POST /:id/reviews', 'PUT /assign/:maintenanceId']
+        },
+        analytics: {
+          path: '/api/analytics',
+          description: 'Property and portfolio analytics',
+          protected: true,
+          methods: ['GET /property/:propertyId', 'GET /portfolio', 'GET /financial-report', 'GET /market-insights']
         },
         search: {
           path: '/api/search',

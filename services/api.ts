@@ -188,6 +188,96 @@ const MOCK_MAINTENANCE_REQUESTS = [
   }
 ];
 
+const MOCK_VENDORS = [
+  {
+    id: '1',
+    companyName: 'NYC Plumbing Pro',
+    contactPerson: 'Mike Rodriguez',
+    email: 'mike@nycplumbingpro.com',
+    phone: '(555) 123-PIPE',
+    address: '123 Plumber Street, Brooklyn, NY 11201',
+    website: 'https://nycplumbingpro.com',
+    description: 'Professional plumbing services for residential and commercial properties in NYC.',
+    specialties: ['PLUMBING', 'EMERGENCY_REPAIR'],
+    serviceAreas: ['MANHATTAN', 'BROOKLYN', 'QUEENS'],
+    isVerified: true,
+    isActive: true,
+    rating: 4.8,
+    totalReviews: 25,
+    hourlyRate: 12500, // $125.00 in cents
+    emergencyRate: 18000, // $180.00 in cents
+    minimumCharge: 10000, // $100.00 in cents
+    services: [
+      {
+        id: '1',
+        serviceType: 'PLUMBING',
+        description: 'General plumbing repairs and installations',
+        basePrice: 12500,
+        priceType: 'HOURLY',
+        isEmergency: false
+      },
+      {
+        id: '2',
+        serviceType: 'EMERGENCY_REPAIR',
+        description: '24/7 emergency plumbing services',
+        basePrice: 18000,
+        priceType: 'HOURLY',
+        isEmergency: true
+      }
+    ],
+    reviews: [
+      {
+        id: '1',
+        rating: 5,
+        comment: 'Excellent service! Fixed our leak quickly and professionally.',
+        workQuality: 5,
+        timeliness: 5,
+        communication: 5,
+        value: 4,
+        workType: 'Kitchen sink repair',
+        workDate: '2025-06-15T10:00:00Z',
+        cost: 15000, // $150.00 in cents
+        reviewer: { firstName: 'John', lastName: 'Doe' },
+        createdAt: '2025-06-15T16:00:00Z'
+      }
+    ],
+    _count: { maintenanceRequests: 8 },
+    createdAt: '2025-01-15T10:00:00Z'
+  },
+  {
+    id: '2',
+    companyName: 'Elite HVAC Services',
+    contactPerson: 'Sarah Johnson',
+    email: 'sarah@elitehvac.com',
+    phone: '(555) HVAC-PRO',
+    address: '456 Climate Ave, Manhattan, NY 10001',
+    website: 'https://elitehvac.com',
+    description: 'Premium HVAC installation, repair, and maintenance services.',
+    specialties: ['HVAC', 'ELECTRICAL'],
+    serviceAreas: ['MANHATTAN', 'QUEENS'],
+    isVerified: true,
+    isActive: true,
+    rating: 4.6,
+    totalReviews: 18,
+    hourlyRate: 15000, // $150.00 in cents
+    emergencyRate: 22500, // $225.00 in cents
+    minimumCharge: 12500, // $125.00 in cents
+    services: [
+      {
+        id: '3',
+        serviceType: 'HVAC',
+        description: 'Heating and cooling system services',
+        basePrice: 15000,
+        priceType: 'HOURLY',
+        isEmergency: false
+      }
+    ],
+    reviews: [],
+    _count: { maintenanceRequests: 12 },
+    createdAt: '2025-02-01T10:00:00Z'
+  }
+];
+
 // Auth Service
 export const authService = {
   login: async (credentials: { email: string; password: string }) => {
@@ -883,6 +973,204 @@ export const maintenanceService = {
           completedRequests: 4,
           urgentRequests: 2,
           avgResponseTime: 24 // hours
+        }
+      };
+    }
+  },
+};
+
+// Vendor Service
+export const vendorService = {
+  getVendors: async (params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    serviceType?: string;
+    borough?: string;
+    rating?: number;
+  }) => {
+    try {
+      const response = await api.get('/vendors', { params });
+      return response.data;
+    } catch (error) {
+      // Mock response for development
+      return {
+        data: {
+          vendors: MOCK_VENDORS,
+          pagination: {
+            page: 1,
+            limit: 10,
+            total: MOCK_VENDORS.length,
+            pages: 1
+          }
+        }
+      };
+    }
+  },
+
+  getVendor: async (id: string) => {
+    try {
+      const response = await api.get(`/vendors/${id}`);
+      return response.data;
+    } catch (error) {
+      // Mock response for development
+      const vendor = MOCK_VENDORS.find(v => v.id === id);
+      return { data: vendor || MOCK_VENDORS[0] };
+    }
+  },
+
+  createVendor: async (data: {
+    companyName: string;
+    contactPerson: string;
+    email: string;
+    phone: string;
+    address?: string;
+    website?: string;
+    description?: string;
+    specialties: string[];
+    serviceAreas: string[];
+    businessLicense?: string;
+    insurance?: any;
+    certifications?: string[];
+    hourlyRate?: number;
+    emergencyRate?: number;
+    minimumCharge?: number;
+  }) => {
+    try {
+      const response = await api.post('/vendors', data);
+      return response.data;
+    } catch (error) {
+      // Mock response for development
+      return {
+        data: {
+          id: Date.now().toString(),
+          ...data,
+          isVerified: false,
+          isActive: true,
+          rating: null,
+          totalReviews: 0,
+          services: [],
+          reviews: [],
+          _count: { maintenanceRequests: 0 },
+          createdAt: new Date().toISOString()
+        }
+      };
+    }
+  },
+
+  updateVendor: async (id: string, data: any) => {
+    try {
+      const response = await api.put(`/vendors/${id}`, data);
+      return response.data;
+    } catch (error) {
+      // Mock response for development
+      const vendor = MOCK_VENDORS.find(v => v.id === id);
+      return {
+        data: {
+          ...vendor,
+          ...data,
+          updatedAt: new Date().toISOString()
+        }
+      };
+    }
+  },
+
+  deleteVendor: async (id: string) => {
+    try {
+      const response = await api.delete(`/vendors/${id}`);
+      return response.data;
+    } catch (error) {
+      // Mock response for development
+      return { data: { message: 'Vendor deactivated successfully' } };
+    }
+  },
+
+  addVendorService: async (vendorId: string, data: {
+    serviceType: string;
+    description?: string;
+    basePrice?: number;
+    priceType?: string;
+    isEmergency?: boolean;
+  }) => {
+    try {
+      const response = await api.post(`/vendors/${vendorId}/services`, data);
+      return response.data;
+    } catch (error) {
+      // Mock response for development
+      return {
+        data: {
+          id: Date.now().toString(),
+          ...data,
+          vendorId,
+          priceType: data.priceType || 'HOURLY',
+          isEmergency: data.isEmergency || false,
+          createdAt: new Date().toISOString()
+        }
+      };
+    }
+  },
+
+  removeVendorService: async (vendorId: string, serviceId: string) => {
+    try {
+      const response = await api.delete(`/vendors/${vendorId}/services/${serviceId}`);
+      return response.data;
+    } catch (error) {
+      // Mock response for development
+      return { data: { message: 'Service removed successfully' } };
+    }
+  },
+
+  addVendorReview: async (vendorId: string, data: {
+    rating: number;
+    comment?: string;
+    workQuality: number;
+    timeliness: number;
+    communication: number;
+    value: number;
+    workType?: string;
+    workDate?: string;
+    cost?: number;
+    maintenanceRequestId?: string;
+  }) => {
+    try {
+      const response = await api.post(`/vendors/${vendorId}/reviews`, data);
+      return response.data;
+    } catch (error) {
+      // Mock response for development
+      return {
+        data: {
+          id: Date.now().toString(),
+          ...data,
+          vendorId,
+          reviewer: { firstName: 'John', lastName: 'Doe' },
+          createdAt: new Date().toISOString()
+        }
+      };
+    }
+  },
+
+  assignVendor: async (maintenanceId: string, data: {
+    vendorId?: string;
+    vendorNotes?: string;
+    vendorEstimate?: number;
+  }) => {
+    try {
+      const response = await api.put(`/vendors/assign/${maintenanceId}`, data);
+      return response.data;
+    } catch (error) {
+      // Mock response for development
+      const mockRequest = MOCK_MAINTENANCE_REQUESTS.find(req => req.id === maintenanceId);
+      const vendor = data.vendorId ? MOCK_VENDORS.find(v => v.id === data.vendorId) : null;
+      
+      return {
+        data: {
+          ...mockRequest,
+          assignedVendorId: data.vendorId,
+          assignedVendor: vendor,
+          vendorNotes: data.vendorNotes,
+          vendorEstimate: data.vendorEstimate,
+          status: data.vendorId ? 'SCHEDULED' : 'PENDING',
+          updatedAt: new Date().toISOString()
         }
       };
     }

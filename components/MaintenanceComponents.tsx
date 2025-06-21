@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Dialog, 
   DialogContent, 
@@ -19,6 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
 import { 
   Wrench, 
   Upload, 
@@ -28,15 +29,32 @@ import {
   DollarSign,
   Clock,
   CheckCircle,
-  User
+  User,
+  Users,
+  Star,
+  Phone,
+  Mail
 } from 'lucide-react';
-import { maintenanceService } from '@/services/api';
+import { maintenanceService, vendorService } from '@/services/api';
 import { toast } from 'react-hot-toast';
 
 interface Property {
   id: string;
   title: string;
   address: string;
+}
+
+interface Vendor {
+  id: string;
+  companyName: string;
+  contactPerson: string;
+  email: string;
+  phone: string;
+  specialties: string[];
+  rating?: number;
+  totalReviews: number;
+  hourlyRate?: number;
+  isVerified: boolean;
 }
 
 interface MaintenanceRequestFormProps {
@@ -273,6 +291,10 @@ interface MaintenanceRequest {
   scheduledDate?: string;
   completedAt?: string;
   createdAt: string;
+  assignedVendorId?: string;
+  assignedVendor?: Vendor;
+  vendorNotes?: string;
+  vendorEstimate?: number;
   property: {
     id: string;
     title: string;
@@ -300,16 +322,43 @@ export function MaintenanceRequestCard({
 }: MaintenanceRequestCardProps) {
   const [updating, setUpdating] = useState(false);
   const [showUpdateForm, setShowUpdateForm] = useState(false);
+  const [showVendorDialog, setShowVendorDialog] = useState(false);
+  const [vendors, setVendors] = useState<Vendor[]>([]);
+  const [loadingVendors, setLoadingVendors] = useState(false);
   const [updateData, setUpdateData] = useState({
     status: request.status,
     cost: request.cost?.toString() || '',
     scheduledDate: request.scheduledDate ? new Date(request.scheduledDate).toISOString().slice(0, 16) : '',
     notes: ''
   });
+  const [vendorAssignment, setVendorAssignment] = useState({
+    vendorId: request.assignedVendorId || '',
+    vendorNotes: request.vendorNotes || '',
+    vendorEstimate: request.vendorEstimate?.toString() || ''
+  });
 
   const priorityOption = PRIORITY_OPTIONS.find(p => p.value === request.priority);
   const StatusIcon = STATUS_ICONS[request.status as keyof typeof STATUS_ICONS]?.icon || Clock;
   const statusColor = STATUS_ICONS[request.status as keyof typeof STATUS_ICONS]?.color || 'text-gray-500';
+
+  const loadVendors = async () => {
+    setLoadingVendors(true);
+    try {
+      const response = await vendorService.getVendors({ limit: 50 });
+      setVendors(response.data.vendors || []);
+    } catch (error) {
+      console.error('Error loading vendors:', error);
+      toast.error('Failed to load vendors');
+    } finally {
+      setLoadingVendors(false);
+    }
+  };
+
+  useEffect(() => {
+    if (showVendorDialog) {
+      loadVendors();
+    }
+  }, [showVendorDialog]);
 
   const handleUpdate = async () => {
     if (!isLandlord) return;
@@ -333,6 +382,39 @@ export function MaintenanceRequestCard({
     }
   };
 
+  const handleVendorAssignment = async () => {
+    if (!isLandlord) return;
+    
+    setUpdating(true);
+    try {
+      const data: any = {};
+      if (vendorAssignment.vendorId) data.vendorId = vendorAssignment.vendorId;
+      if (vendorAssignment.vendorNotes) data.vendorNotes = vendorAssignment.vendorNotes;
+      if (vendorAssignment.vendorEstimate) data.vendorEstimate = parseFloat(vendorAssignment.vendorEstimate);
+
+      await vendorService.assignVendor(request.id, data);
+      toast.success(vendorAssignment.vendorId ? 'Vendor assigned successfully' : 'Vendor unassigned successfully');
+      setShowVendorDialog(false);
+      onUpdate?.();
+    } catch (error) {
+      console.error('Error assigning vendor:', error);
+      toast.error('Failed to assign vendor');
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const formatCurrency = (amount?: number) => {
+    if (!amount) return 'Not specified';
+    return `$${(amount / 100).toFixed(2)}`;
+  };
+
+  const formatServiceType = (type: string) => {
+    return type.split('_').map(word => 
+      word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+    ).join(' ');
+  };
+
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
       {/* Header */}
@@ -349,16 +431,83 @@ export function MaintenanceRequestCard({
             <span className="capitalize">{request.status.replace('_', ' ').toLowerCase()}</span>
           </div>
         </div>
-        {isLandlord && request.status !== 'COMPLETED' && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowUpdateForm(!showUpdateForm)}
-          >
-            Update Status
-          </Button>
+        {isLandlord && (
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowVendorDialog(true)}
+            >
+              <Users className="h-4 w-4 mr-1" />
+              {request.assignedVendor ? 'Change Vendor' : 'Assign Vendor'}
+            </Button>
+            {request.status !== 'COMPLETED' && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowUpdateForm(!showUpdateForm)}
+              >
+                Update Status
+              </Button>
+            )}
+          </div>
         )}
       </div>
+
+      {/* Assigned Vendor Info */}
+      {request.assignedVendor && (
+        <div className="bg-blue-50 rounded-lg p-4 mb-4">
+          <div className="flex items-start justify-between">
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-2">
+                <Users className="h-4 w-4 text-blue-600" />
+                <span className="font-medium text-blue-900">Assigned Vendor</span>
+                {request.assignedVendor.isVerified && (
+                  <Badge variant="secondary" className="text-xs">Verified</Badge>
+                )}
+              </div>
+              <div className="space-y-1">
+                <p className="font-medium">{request.assignedVendor.companyName}</p>
+                <p className="text-sm text-gray-600">{request.assignedVendor.contactPerson}</p>
+                <div className="flex items-center gap-4 text-sm">
+                  <div className="flex items-center gap-1">
+                    <Phone className="h-3 w-3" />
+                    <span>{request.assignedVendor.phone}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Mail className="h-3 w-3" />
+                    <span>{request.assignedVendor.email}</span>
+                  </div>
+                </div>
+                {request.assignedVendor.rating && (
+                  <div className="flex items-center gap-1">
+                    <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                    <span className="text-sm">{request.assignedVendor.rating.toFixed(1)} ({request.assignedVendor.totalReviews} reviews)</span>
+                  </div>
+                )}
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {request.assignedVendor.specialties.slice(0, 3).map(specialty => (
+                    <Badge key={specialty} variant="outline" className="text-xs">
+                      {formatServiceType(specialty)}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-sm font-medium">{formatCurrency(request.assignedVendor.hourlyRate)}/hr</p>
+              {request.vendorEstimate && (
+                <p className="text-sm text-gray-600">Est: ${request.vendorEstimate}</p>
+              )}
+            </div>
+          </div>
+          {request.vendorNotes && (
+            <div className="mt-3 pt-3 border-t border-blue-200">
+              <p className="text-sm text-gray-700"><strong>Notes:</strong> {request.vendorNotes}</p>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Property & Tenant Info */}
       <div className="space-y-2 mb-4">
@@ -483,6 +632,85 @@ export function MaintenanceRequestCard({
           </div>
         </div>
       )}
+
+      {/* Vendor Assignment Dialog */}
+      <Dialog open={showVendorDialog} onOpenChange={setShowVendorDialog}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Assign Vendor</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="vendor">Select Vendor</Label>
+              <Select 
+                value={vendorAssignment.vendorId} 
+                onValueChange={(value) => setVendorAssignment(prev => ({ ...prev, vendorId: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a vendor" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">No vendor assigned</SelectItem>
+                  {vendors.map((vendor) => (
+                    <SelectItem key={vendor.id} value={vendor.id}>
+                      <div className="flex items-center justify-between w-full">
+                        <div>
+                          <div className="font-medium">{vendor.companyName}</div>
+                          <div className="text-sm text-gray-500">{vendor.contactPerson}</div>
+                        </div>
+                        <div className="text-right">
+                          {vendor.rating && (
+                            <div className="flex items-center gap-1">
+                              <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                              <span className="text-sm">{vendor.rating.toFixed(1)}</span>
+                            </div>
+                          )}
+                          <div className="text-sm">{formatCurrency(vendor.hourlyRate)}/hr</div>
+                        </div>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div>
+              <Label htmlFor="vendorNotes">Notes for Vendor</Label>
+              <Textarea
+                id="vendorNotes"
+                value={vendorAssignment.vendorNotes}
+                onChange={(e) => setVendorAssignment(prev => ({ ...prev, vendorNotes: e.target.value }))}
+                rows={3}
+                placeholder="Additional instructions or notes..."
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="vendorEstimate">Estimated Cost ($)</Label>
+              <Input
+                id="vendorEstimate"
+                type="number"
+                step="0.01"
+                value={vendorAssignment.vendorEstimate}
+                onChange={(e) => setVendorAssignment(prev => ({ ...prev, vendorEstimate: e.target.value }))}
+                placeholder="Optional estimate"
+              />
+            </div>
+
+            <div className="flex justify-end space-x-2 pt-4">
+              <Button variant="outline" onClick={() => setShowVendorDialog(false)}>
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleVendorAssignment}
+                disabled={updating}
+              >
+                {updating ? 'Assigning...' : 'Assign Vendor'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

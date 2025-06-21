@@ -56,6 +56,8 @@ model User {
   emailVerifications EmailVerification[]
   passwordResets    PasswordReset[]
   maintenanceRequests MaintenanceRequest[] @relation("TenantRequests")
+  vendors           Vendor[] @relation("LandlordVendors")
+  vendorReviews     VendorReview[]
   
   @@map("users")
 }
@@ -317,14 +319,114 @@ model MaintenanceRequest {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   
+  // Vendor Assignment Fields
+  assignedVendorId String?
+  vendorNotes     String?
+  vendorEstimate  Int?
+  workStartDate   DateTime?
+  workEndDate     DateTime?
+  
   // Foreign Keys
   propertyId  String
   tenantId    String
   
   property    Property @relation(fields: [propertyId], references: [id])
   tenant      User @relation("TenantRequests", fields: [tenantId], references: [id])
+  assignedVendor Vendor? @relation(fields: [assignedVendorId], references: [id])
   
   @@map("maintenance_requests")
+}
+
+model Vendor {
+  id              String   @id @default(cuid())
+  companyName     String
+  contactPerson   String
+  email           String
+  phone           String
+  address         String?
+  website         String?
+  description     String?
+  specialties     String[]  // Array of service types they handle
+  serviceAreas    String[]  // NYC boroughs they serve
+  isVerified      Boolean  @default(false)
+  isActive        Boolean  @default(true)
+  rating          Float?    // Average rating from reviews
+  totalReviews    Int      @default(0)
+  
+  // Business Information
+  businessLicense String?
+  insurance       Json?     // Insurance information
+  certifications  String[]  // Professional certifications
+  
+  // Pricing Information
+  hourlyRate      Int?      // Hourly rate in cents
+  emergencyRate   Int?      // Emergency/after-hours rate in cents
+  minimumCharge   Int?      // Minimum charge in cents
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // Foreign Keys
+  addedById       String    // Landlord who added this vendor
+  addedBy         User @relation("LandlordVendors", fields: [addedById], references: [id])
+  
+  // Relationships
+  services        VendorService[]
+  maintenanceRequests MaintenanceRequest[]
+  reviews         VendorReview[]
+  
+  @@map("vendors")
+}
+
+model VendorService {
+  id          String   @id @default(cuid())
+  serviceType ServiceType
+  description String?
+  basePrice   Int?      // Base price in cents
+  priceType   PriceType @default(HOURLY) // HOURLY, FLAT_RATE, PER_SQFT, ESTIMATE_REQUIRED
+  isEmergency Boolean  @default(false)
+  
+  // Foreign Keys
+  vendorId    String
+  vendor      Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@unique([vendorId, serviceType])
+  @@map("vendor_services")
+}
+
+model VendorReview {
+  id          String   @id @default(cuid())
+  rating      Int      // 1-5 stars
+  comment     String?
+  workQuality Int      // 1-5 rating for work quality
+  timeliness  Int      // 1-5 rating for timeliness
+  communication Int    // 1-5 rating for communication
+  value       Int      // 1-5 rating for value/pricing
+  
+  // Work Details
+  workType    String?
+  workDate    DateTime?
+  cost        Int?     // Total cost of work in cents
+  
+  // Response from vendor
+  vendorResponse String?
+  vendorResponseDate DateTime?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Foreign Keys
+  vendorId    String
+  reviewerId  String   // Landlord who left the review
+  maintenanceRequestId String? // Optional link to specific maintenance request
+  
+  vendor      Vendor @relation(fields: [vendorId], references: [id])
+  reviewer    User @relation(fields: [reviewerId], references: [id])
+  
+  @@map("vendor_reviews")
 }
 
 model PropertyInspection {
@@ -529,4 +631,33 @@ enum BackgroundCheckStatus {
   IN_PROGRESS
   COMPLETED
   FAILED
+}
+
+enum ServiceType {
+  PLUMBING
+  ELECTRICAL
+  HVAC
+  CARPENTRY
+  PAINTING
+  FLOORING
+  APPLIANCE_REPAIR
+  PEST_CONTROL
+  CLEANING
+  LANDSCAPING
+  ROOFING
+  WINDOWS
+  GENERAL_HANDYMAN
+  LOCKSMITH
+  MASONRY
+  DRYWALL
+  TILE_WORK
+  EMERGENCY_REPAIR
+  OTHER
+}
+
+enum PriceType {
+  HOURLY
+  FLAT_RATE
+  PER_SQFT
+  ESTIMATE_REQUIRED
 }

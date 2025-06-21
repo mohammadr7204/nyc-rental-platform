@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Menu, X, User, Bell, MessageSquare, Heart, Building, Search, LogOut, Wrench } from 'lucide-react';
+import { Menu, X, User, Bell, MessageSquare, Heart, Building, Search, LogOut, Wrench, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { messageService } from '@/services/api';
@@ -50,7 +50,8 @@ export function Navbar() {
     { name: 'Maintenance', href: '/maintenance', icon: Wrench },
     { name: 'Saved Properties', href: '/saved', icon: Heart },
     ...(user?.userType === 'LANDLORD' || user?.userType === 'PROPERTY_MANAGER' ? [
-      { name: 'My Properties', href: '/my-properties', icon: Building }
+      { name: 'My Properties', href: '/my-properties', icon: Building },
+      { name: 'Vendors', href: '/vendors', icon: Users }
     ] : []),
   ];
 
@@ -109,6 +110,15 @@ export function Navbar() {
                     <Wrench className="h-4 w-4" />
                   </Button>
                 </Link>
+
+                {/* Vendors Quick Access - Only for Landlords */}
+                {(user?.userType === 'LANDLORD' || user?.userType === 'PROPERTY_MANAGER') && (
+                  <Link href="/vendors">
+                    <Button variant="ghost" size="sm" className="text-gray-700 hover:text-blue-600">
+                      <Users className="h-4 w-4" />
+                    </Button>
+                  </Link>
+                )}
 
                 {/* User Menu */}
                 <div className="relative">

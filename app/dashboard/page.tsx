@@ -24,13 +24,14 @@ import { Button } from '@/components/ui/button';
 import { PropertyCard } from '@/components/PropertyCard';
 import { Navbar } from '@/components/Navbar';
 import { useAuth } from '@/contexts/AuthContext';
-import { userService, propertyService, applicationService, maintenanceService } from '@/services/api';
+import { userService, propertyService, applicationService, maintenanceService, vendorService } from '@/services/api';
 import { formatCurrency, formatRelativeTime } from '@/lib/utils';
 
 export default function DashboardPage() {
   const { user } = useAuth();
   const [stats, setStats] = useState<any>(null);
   const [maintenanceStats, setMaintenanceStats] = useState<any>(null);
+  const [vendorStats, setVendorStats] = useState<any>(null);
   const [recentProperties, setRecentProperties] = useState([]);
   const [recentMaintenanceRequests, setRecentMaintenanceRequests] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -52,6 +53,22 @@ export default function DashboardPage() {
       setStats(statsResponse.data);
       setRecentProperties(propertiesResponse.data.slice(0, 3));
       setMaintenanceStats(maintenanceStatsResponse.data);
+
+      // Load vendor stats for landlords
+      if (user?.userType === 'LANDLORD' || user?.userType === 'PROPERTY_MANAGER') {
+        try {
+          const vendorResponse = await vendorService.getVendors({ limit: 1 });
+          setVendorStats({
+            totalVendors: vendorResponse.data.pagination?.total || 0,
+            activeVendors: vendorResponse.data.vendors?.filter((v: any) => v.isActive).length || 0,
+            verifiedVendors: vendorResponse.data.vendors?.filter((v: any) => v.isVerified).length || 0
+          });
+        } catch (error) {
+          console.error('Error loading vendor stats:', error);
+          // Set default vendor stats
+          setVendorStats({ totalVendors: 0, activeVendors: 0, verifiedVendors: 0 });
+        }
+      }
 
       // Load recent maintenance requests
       try {
@@ -103,7 +120,7 @@ export default function DashboardPage() {
           </h1>
           <p className="text-lg text-gray-600">
             {isLandlord 
-              ? 'Manage your properties, maintenance requests, and tenant applications'
+              ? 'Manage your properties, maintenance requests, vendors, and tenant applications'
               : 'Track your applications, maintenance requests, and discover new places'
             }
           </p>
@@ -133,16 +150,19 @@ export default function DashboardPage() {
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-gray-600">Applications</p>
-                    <p className="text-3xl font-bold text-gray-900">{stats?.applicationsCount || 0}</p>
+                    <p className="text-sm font-medium text-gray-600">Vendors</p>
+                    <p className="text-3xl font-bold text-gray-900">{vendorStats?.totalVendors || 0}</p>
+                    <p className="text-xs text-gray-500">
+                      {vendorStats?.verifiedVendors || 0} verified
+                    </p>
                   </div>
-                  <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                    <FileText className="h-6 w-6 text-green-600" />
+                  <div className="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center">
+                    <Users className="h-6 w-6 text-indigo-600" />
                   </div>
                 </div>
                 <div className="mt-4">
-                  <Link href="/applications" className="text-sm text-green-600 hover:text-green-700 font-medium">
-                    Review applications →
+                  <Link href="/vendors" className="text-sm text-indigo-600 hover:text-indigo-700 font-medium">
+                    Manage vendors →
                   </Link>
                 </div>
               </div>
@@ -168,18 +188,16 @@ export default function DashboardPage() {
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-gray-600">Total Revenue</p>
-                    <p className="text-3xl font-bold text-gray-900">
-                      {formatCurrency(stats?.totalRevenue || 0)}
-                    </p>
+                    <p className="text-sm font-medium text-gray-600">Applications</p>
+                    <p className="text-3xl font-bold text-gray-900">{stats?.applicationsCount || 0}</p>
                   </div>
-                  <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-                    <DollarSign className="h-6 w-6 text-purple-600" />
+                  <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                    <FileText className="h-6 w-6 text-green-600" />
                   </div>
                 </div>
                 <div className="mt-4">
-                  <Link href="/dashboard/payments" className="text-sm text-purple-600 hover:text-purple-700 font-medium">
-                    View earnings →
+                  <Link href="/applications" className="text-sm text-green-600 hover:text-green-700 font-medium">
+                    Review applications →
                   </Link>
                 </div>
               </div>
@@ -476,13 +494,19 @@ export default function DashboardPage() {
         {/* Quick Actions */}
         <div className="mt-8 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <h2 className="text-xl font-semibold text-gray-900 mb-4">Quick Actions</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
             {isLandlord ? (
               <>
                 <Button asChild className="h-auto p-4 flex-col space-y-2">
                   <Link href="/list-property">
                     <Plus className="h-6 w-6" />
                     <span>Add Property</span>
+                  </Link>
+                </Button>
+                <Button asChild variant="outline" className="h-auto p-4 flex-col space-y-2">
+                  <Link href="/vendors">
+                    <Users className="h-6 w-6" />
+                    <span>Manage Vendors</span>
                   </Link>
                 </Button>
                 <Button asChild variant="outline" className="h-auto p-4 flex-col space-y-2">

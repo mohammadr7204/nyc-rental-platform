@@ -278,6 +278,79 @@ const MOCK_VENDORS = [
   }
 ];
 
+// Mock analytics data
+const MOCK_PORTFOLIO_ANALYTICS = {
+  overview: {
+    totalProperties: 4,
+    totalRevenue: 14200,
+    occupancyRate: 75,
+    averageRent: 3550,
+    totalMaintenanceCost: 2800,
+    totalApplications: 18,
+    pendingApplications: 5,
+    yearlyRevenue: 170400
+  },
+  properties: [
+    {
+      id: '1',
+      title: 'Luxury 2BR in Manhattan',
+      address: '123 Park Avenue',
+      rentAmount: 4500,
+      isOccupied: true,
+      applicationCount: 8,
+      maintenanceCount: 3,
+      maintenanceCost: 1200,
+      monthlyRevenue: 4500,
+      roi: 85.2
+    },
+    {
+      id: '2',
+      title: 'Brooklyn Heights Studio',
+      address: '456 Hicks Street',
+      rentAmount: 3200,
+      isOccupied: true,
+      applicationCount: 6,
+      maintenanceCount: 2,
+      maintenanceCost: 800,
+      monthlyRevenue: 3200,
+      roi: 78.4
+    },
+    {
+      id: '3',
+      title: 'Queens 1BR Apartment',
+      address: '789 Queens Blvd',
+      rentAmount: 2800,
+      isOccupied: false,
+      applicationCount: 4,
+      maintenanceCount: 1,
+      maintenanceCost: 300,
+      monthlyRevenue: 0,
+      roi: 0
+    }
+  ],
+  trends: {
+    monthlyRevenue: [12000, 13500, 14200, 14200, 13800, 14200, 14200, 13900, 14200, 14200, 0, 0],
+    applicationTrends: [12, 15, 18, 22, 16, 19, 18, 14, 17, 16, 0, 0],
+    maintenanceCosts: [800, 1200, 900, 600, 1100, 750, 950, 1300, 850, 1000, 0, 0]
+  },
+  topPerformers: [
+    {
+      id: '1',
+      title: 'Luxury 2BR in Manhattan',
+      roi: 85.2,
+      monthlyRevenue: 4500
+    }
+  ],
+  lowPerformers: [
+    {
+      id: '3',
+      title: 'Queens 1BR Apartment',
+      roi: 0,
+      monthlyRevenue: 0
+    }
+  ]
+};
+
 // Auth Service
 export const authService = {
   login: async (credentials: { email: string; password: string }) => {
@@ -1171,6 +1244,235 @@ export const vendorService = {
           vendorEstimate: data.vendorEstimate,
           status: data.vendorId ? 'SCHEDULED' : 'PENDING',
           updatedAt: new Date().toISOString()
+        }
+      };
+    }
+  },
+};
+
+// Analytics Service
+export const analyticsService = {
+  getPropertyAnalytics: async (propertyId: string) => {
+    try {
+      const response = await api.get(`/analytics/property/${propertyId}`);
+      return response.data;
+    } catch (error) {
+      // Mock response for development
+      return {
+        data: {
+          property: {
+            id: propertyId,
+            title: 'Luxury 2BR in Manhattan',
+            address: '123 Park Avenue',
+            rentAmount: 4500,
+            status: 'AVAILABLE'
+          },
+          applications: {
+            total: 8,
+            byStatus: {
+              pending: 3,
+              approved: 2,
+              rejected: 2,
+              withdrawn: 1
+            }
+          },
+          maintenance: {
+            total: 5,
+            totalCost: 1200,
+            averageCost: 240,
+            byStatus: {
+              pending: 1,
+              scheduled: 1,
+              in_progress: 1,
+              completed: 2
+            },
+            byPriority: {
+              low: 2,
+              medium: 2,
+              high: 1,
+              urgent: 0
+            }
+          },
+          payments: {
+            total: 12,
+            totalAmount: 54000,
+            averageAmount: 4500
+          },
+          occupancy: {
+            isOccupied: true,
+            currentTenant: {
+              firstName: 'John',
+              lastName: 'Doe',
+              email: 'john@example.com'
+            },
+            averageTimeToRent: 14
+          },
+          performance: {
+            weeklyViews: 45,
+            monthlyRevenue: 4500,
+            yearlyRevenue: 54000
+          },
+          leaseHistory: [
+            {
+              id: '1',
+              tenant: { firstName: 'John', lastName: 'Doe' },
+              startDate: '2025-01-01T00:00:00Z',
+              endDate: '2025-12-31T23:59:59Z',
+              monthlyRent: 4500,
+              status: 'ACTIVE'
+            }
+          ]
+        }
+      };
+    }
+  },
+
+  getPortfolioAnalytics: async () => {
+    try {
+      const response = await api.get('/analytics/portfolio');
+      return response.data;
+    } catch (error) {
+      // Mock response for development
+      return { data: MOCK_PORTFOLIO_ANALYTICS };
+    }
+  },
+
+  getFinancialReport: async (params?: {
+    startDate?: string;
+    endDate?: string;
+    propertyId?: string;
+  }) => {
+    try {
+      const response = await api.get('/analytics/financial-report', { params });
+      return response.data;
+    } catch (error) {
+      // Mock response for development
+      const startDate = params?.startDate || '2025-01-01';
+      const endDate = params?.endDate || '2025-12-31';
+      
+      return {
+        data: {
+          period: {
+            startDate,
+            endDate
+          },
+          summary: {
+            totalIncome: 52000,
+            totalExpenses: 8500,
+            netIncome: 43500,
+            profitMargin: 83.65
+          },
+          income: {
+            total: 52000,
+            byType: {
+              MONTHLY_RENT: 45000,
+              APPLICATION_FEE: 1200,
+              SECURITY_DEPOSIT: 4500,
+              LATE_FEE: 300,
+              OTHER: 1000
+            },
+            transactions: [
+              {
+                id: '1',
+                amount: 4500,
+                type: 'MONTHLY_RENT',
+                date: '2025-06-01T00:00:00Z',
+                property: 'Luxury 2BR in Manhattan',
+                description: 'June rent payment'
+              }
+            ]
+          },
+          expenses: {
+            total: 8500,
+            byPriority: {
+              LOW: 2000,
+              MEDIUM: 3500,
+              HIGH: 2500,
+              URGENT: 500
+            },
+            transactions: [
+              {
+                id: '1',
+                amount: 1200,
+                priority: 'HIGH',
+                date: '2025-06-15T00:00:00Z',
+                property: 'Luxury 2BR in Manhattan',
+                description: 'HVAC repair'
+              }
+            ]
+          },
+          properties: [
+            {
+              id: '1',
+              title: 'Luxury 2BR in Manhattan',
+              address: '123 Park Avenue',
+              income: 27000,
+              expenses: 4200,
+              netIncome: 22800,
+              rentAmount: 4500
+            },
+            {
+              id: '2',
+              title: 'Brooklyn Heights Studio',
+              address: '456 Hicks Street',
+              income: 19200,
+              expenses: 2800,
+              netIncome: 16400,
+              rentAmount: 3200
+            }
+          ]
+        }
+      };
+    }
+  },
+
+  getMarketInsights: async (params?: {
+    borough?: string;
+    propertyType?: string;
+  }) => {
+    try {
+      const response = await api.get('/analytics/market-insights', { params });
+      return response.data;
+    } catch (error) {
+      // Mock response for development
+      return {
+        data: {
+          marketData: {
+            averageRent: 3850,
+            medianRent: 3600,
+            priceRange: {
+              min: 2200,
+              max: 8500
+            },
+            totalListings: 247,
+            borough: params?.borough || 'All Boroughs',
+            propertyType: params?.propertyType || 'All Types'
+          },
+          userComparison: {
+            aboveMarket: 2,
+            atMarket: 1,
+            belowMarket: 1
+          },
+          recommendations: [
+            {
+              type: 'PRICE_INCREASE',
+              title: 'Consider Rent Increase',
+              description: '1 of your properties are priced below market average. Consider increasing rent by 5-10%.',
+              priority: 'HIGH'
+            },
+            {
+              type: 'MARKET_TREND',
+              title: 'Market Analysis',
+              description: 'Average rent in this market is $3,850. Your portfolio average is $3,550.',
+              priority: 'INFO'
+            }
+          ],
+          priceDistribution: {
+            under2000: 12,
+            between2000and3000: 58,
+            between3000and4000: 89,
+            over4000: 88
+          }
         }
       };
     }

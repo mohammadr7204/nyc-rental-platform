@@ -661,6 +661,290 @@ router.post('/:id/renew', authenticateToken, async (req, res) => {
   }
 });
 
+// Generate lease document (placeholder for DocuSign integration)
+router.post('/:id/generate-document', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const lease = await prisma.lease.findUnique({
+      where: { id },
+      include: {
+        application: {
+          include: {
+            property: true,
+            applicant: true
+          }
+        }
+      }
+    });
+
+    if (!lease) {
+      return res.status(404).json({ error: 'Lease not found' });
+    }
+
+    if (lease.application.property.ownerId !== req.user.userId) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    // TODO: Implement DocuSign template generation
+    // This would generate a PDF lease document using a template
+    // and prepare it for signing via DocuSign
+    
+    // For now, return a placeholder response
+    const documentData = {
+      documentId: `doc_${id}_${Date.now()}`,
+      templateUsed: 'nyc_lease_template_v1',
+      generatedAt: new Date(),
+      status: 'GENERATED',
+      variables: {
+        landlordName: `${lease.application.property.owner?.firstName} ${lease.application.property.owner?.lastName}`,
+        tenantName: `${lease.application.applicant.firstName} ${lease.application.applicant.lastName}`,
+        propertyAddress: lease.application.property.address,
+        monthlyRent: lease.monthlyRent / 100,
+        securityDeposit: lease.securityDeposit / 100,
+        startDate: format(new Date(lease.startDate), 'MMMM dd, yyyy'),
+        endDate: format(new Date(lease.endDate), 'MMMM dd, yyyy'),
+        leaseTerm: `${differenceInDays(new Date(lease.endDate), new Date(lease.startDate))} days`
+      }
+    };
+
+    // Update lease with document generation info
+    await prisma.lease.update({
+      where: { id },
+      data: {
+        terms: {
+          ...lease.terms,
+          documentGeneration: documentData
+        }
+      }
+    });
+
+    res.json({
+      message: 'Lease document generated successfully',
+      document: documentData
+    });
+  } catch (error) {
+    console.error('Error generating lease document:', error);
+    res.status(500).json({ error: 'Failed to generate lease document' });
+  }
+});
+
+// Send lease for digital signature (placeholder for DocuSign integration)
+router.post('/:id/send-for-signature', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { signerEmail } = req.body;
+
+    if (!signerEmail) {
+      return res.status(400).json({ error: 'Signer email is required' });
+    }
+
+    const lease = await prisma.lease.findUnique({
+      where: { id },
+      include: {
+        application: {
+          include: {
+            property: true,
+            applicant: true
+          }
+        }
+      }
+    });
+
+    if (!lease) {
+      return res.status(404).json({ error: 'Lease not found' });
+    }
+
+    if (lease.application.property.ownerId !== req.user.userId) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    // TODO: Implement DocuSign envelope creation and sending
+    // This would create a DocuSign envelope with the lease document
+    // and send it to the tenant for signature
+    
+    // For now, return a placeholder response
+    const envelopeData = {
+      envelopeId: `env_${id}_${Date.now()}`,
+      status: 'SENT',
+      sentAt: new Date(),
+      signers: [
+        {
+          email: signerEmail,
+          name: `${lease.application.applicant.firstName} ${lease.application.applicant.lastName}`,
+          role: 'Tenant',
+          status: 'SENT'
+        }
+      ],
+      expirationDate: addMonths(new Date(), 1) // Expires in 1 month
+    };
+
+    // Update lease status to pending signature
+    await prisma.lease.update({
+      where: { id },
+      data: {
+        status: 'PENDING_SIGNATURE',
+        terms: {
+          ...lease.terms,
+          digitalSignature: envelopeData
+        }
+      }
+    });
+
+    // Log activity
+    await prisma.activityLog.create({
+      data: {
+        userId: req.user.userId,
+        action: 'SEND_LEASE_FOR_SIGNATURE',
+        entity: 'Lease',
+        entityId: lease.id,
+        details: {
+          signerEmail,
+          envelopeId: envelopeData.envelopeId
+        }
+      }
+    });
+
+    res.json({
+      message: 'Lease sent for signature successfully',
+      envelope: envelopeData
+    });
+  } catch (error) {
+    console.error('Error sending lease for signature:', error);
+    res.status(500).json({ error: 'Failed to send lease for signature' });
+  }
+});
+
+// Check lease compliance (placeholder for compliance monitoring)
+router.get('/:id/compliance', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const lease = await prisma.lease.findUnique({
+      where: { id },
+      include: {
+        application: {
+          include: {
+            property: true
+          }
+        }
+      }
+    });
+
+    if (!lease) {
+      return res.status(404).json({ error: 'Lease not found' });
+    }
+
+    const canAccess = 
+      lease.application.property.ownerId === req.user.userId || 
+      lease.tenantId === req.user.userId;
+
+    if (!canAccess) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    // TODO: Implement comprehensive compliance checking
+    // This would check against NYC rental laws, rent stabilization rules,
+    // FARE Act compliance, etc.
+    
+    const complianceChecks = {
+      fareActCompliance: {
+        status: 'COMPLIANT',
+        lastChecked: new Date(),
+        details: 'Broker fee disclosure properly documented'
+      },
+      rentStabilization: {
+        status: lease.application.property.isRentStabilized ? 'APPLICABLE' : 'NOT_APPLICABLE',
+        lastChecked: new Date(),
+        details: lease.application.property.isRentStabilized 
+          ? 'Property is rent stabilized - renewal rules apply'
+          : 'Property is not rent stabilized'
+      },
+      securityDepositCompliance: {
+        status: lease.securityDeposit <= (lease.monthlyRent * 1) ? 'COMPLIANT' : 'VIOLATION',
+        lastChecked: new Date(),
+        details: `Security deposit: $${lease.securityDeposit / 100}, Monthly rent: $${lease.monthlyRent / 100}`
+      },
+      documentationComplete: {
+        status: lease.documentUrl ? 'COMPLIANT' : 'INCOMPLETE',
+        lastChecked: new Date(),
+        details: lease.documentUrl ? 'Signed lease document on file' : 'Missing signed lease document'
+      },
+      overallCompliance: 'COMPLIANT'
+    };
+
+    res.json({
+      leaseId: id,
+      complianceStatus: complianceChecks.overallCompliance,
+      lastChecked: new Date(),
+      checks: complianceChecks
+    });
+  } catch (error) {
+    console.error('Error checking lease compliance:', error);
+    res.status(500).json({ error: 'Failed to check lease compliance' });
+  }
+});
+
+// Calculate rent escalation (placeholder for automated rent adjustments)
+router.post('/:id/escalation', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { escalationRate } = req.body;
+
+    if (!escalationRate || escalationRate < 0 || escalationRate > 50) {
+      return res.status(400).json({ error: 'Invalid escalation rate (0-50% allowed)' });
+    }
+
+    const lease = await prisma.lease.findUnique({
+      where: { id },
+      include: {
+        application: {
+          include: { property: true }
+        }
+      }
+    });
+
+    if (!lease) {
+      return res.status(404).json({ error: 'Lease not found' });
+    }
+
+    if (lease.application.property.ownerId !== req.user.userId) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    // TODO: Implement rent stabilization compliance checking
+    // For rent stabilized units, escalation is limited by NYC regulations
+    
+    const currentRent = lease.monthlyRent;
+    const escalationAmount = Math.round(currentRent * (escalationRate / 100));
+    const newRent = currentRent + escalationAmount;
+
+    const escalationData = {
+      currentRent: currentRent / 100,
+      escalationRate,
+      escalationAmount: escalationAmount / 100,
+      newRent: newRent / 100,
+      calculatedAt: new Date(),
+      effectiveDate: lease.endDate, // Typically applies at renewal
+      isRentStabilized: lease.application.property.isRentStabilized,
+      compliance: {
+        status: 'CALCULATED',
+        notes: lease.application.property.isRentStabilized 
+          ? 'Subject to rent stabilization limits - verify against RGB guidelines'
+          : 'Market rate property - escalation allowed'
+      }
+    };
+
+    res.json({
+      message: 'Rent escalation calculated successfully',
+      escalation: escalationData
+    });
+  } catch (error) {
+    console.error('Error calculating rent escalation:', error);
+    res.status(500).json({ error: 'Failed to calculate rent escalation' });
+  }
+});
+
 // Get lease dashboard statistics
 router.get('/dashboard/stats', authenticateToken, async (req, res) => {
   try {

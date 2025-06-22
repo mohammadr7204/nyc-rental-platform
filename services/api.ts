@@ -278,6 +278,73 @@ const MOCK_VENDORS = [
   }
 ];
 
+const MOCK_INSPECTIONS = [
+  {
+    id: '1',
+    type: 'MOVE_IN',
+    scheduledDate: '2025-06-25T10:00:00Z',
+    completedDate: null,
+    status: 'SCHEDULED',
+    notes: 'Initial move-in inspection for new tenant',
+    photos: [],
+    report: null,
+    inspectorId: null,
+    createdAt: '2025-06-20T09:00:00Z',
+    updatedAt: '2025-06-20T09:00:00Z',
+    property: {
+      id: '1',
+      title: 'Luxury 2BR in Manhattan',
+      address: '123 Park Avenue',
+      borough: 'MANHATTAN'
+    }
+  },
+  {
+    id: '2',
+    type: 'ANNUAL',
+    scheduledDate: '2025-07-01T14:00:00Z',
+    completedDate: null,
+    status: 'SCHEDULED',
+    notes: 'Annual safety and maintenance inspection',
+    photos: [],
+    report: null,
+    inspectorId: 'inspector_1',
+    createdAt: '2025-06-21T10:30:00Z',
+    updatedAt: '2025-06-21T10:30:00Z',
+    property: {
+      id: '2',
+      title: 'Brooklyn Heights Studio',
+      address: '456 Hicks Street',
+      borough: 'BROOKLYN'
+    }
+  },
+  {
+    id: '3',
+    type: 'MAINTENANCE',
+    scheduledDate: '2025-06-20T09:00:00Z',
+    completedDate: '2025-06-20T11:30:00Z',
+    status: 'COMPLETED',
+    notes: 'Inspection following HVAC repair work',
+    photos: ['/mock-inspection-photo1.jpg', '/mock-inspection-photo2.jpg'],
+    report: {
+      summary: 'HVAC system properly repaired and functioning correctly',
+      items: [
+        { area: 'Living Room', condition: 'Good', notes: 'AC unit working properly' },
+        { area: 'Bedroom', condition: 'Good', notes: 'Temperature control functioning' }
+      ],
+      recommendations: []
+    },
+    inspectorId: 'inspector_2',
+    createdAt: '2025-06-19T08:00:00Z',
+    updatedAt: '2025-06-20T11:30:00Z',
+    property: {
+      id: '1',
+      title: 'Luxury 2BR in Manhattan',
+      address: '123 Park Avenue',
+      borough: 'MANHATTAN'
+    }
+  }
+];
+
 // Mock analytics data
 const MOCK_PORTFOLIO_ANALYTICS = {
   overview: {
@@ -1244,6 +1311,214 @@ export const vendorService = {
           vendorEstimate: data.vendorEstimate,
           status: data.vendorId ? 'SCHEDULED' : 'PENDING',
           updatedAt: new Date().toISOString()
+        }
+      };
+    }
+  },
+};
+
+// Inspection Service
+export const inspectionService = {
+  getInspections: async (params?: {
+    propertyId?: string;
+    status?: string;
+    type?: string;
+    startDate?: string;
+    endDate?: string;
+    page?: number;
+    limit?: number;
+  }) => {
+    try {
+      const response = await api.get('/inspections', { params });
+      return response.data;
+    } catch (error) {
+      // Mock response for development
+      let filteredInspections = MOCK_INSPECTIONS;
+      
+      if (params?.propertyId) {
+        filteredInspections = filteredInspections.filter(i => i.property.id === params.propertyId);
+      }
+      
+      if (params?.status) {
+        filteredInspections = filteredInspections.filter(i => i.status === params.status);
+      }
+      
+      if (params?.type) {
+        filteredInspections = filteredInspections.filter(i => i.type === params.type);
+      }
+      
+      return {
+        data: {
+          inspections: filteredInspections,
+          pagination: {
+            total: filteredInspections.length,
+            pages: 1,
+            currentPage: 1,
+            limit: 10
+          }
+        }
+      };
+    }
+  },
+
+  getInspection: async (id: string) => {
+    try {
+      const response = await api.get(`/inspections/${id}`);
+      return response.data;
+    } catch (error) {
+      // Mock response for development
+      const inspection = MOCK_INSPECTIONS.find(i => i.id === id);
+      return { data: inspection || MOCK_INSPECTIONS[0] };
+    }
+  },
+
+  createInspection: async (data: {
+    propertyId: string;
+    type: string;
+    scheduledDate: string;
+    notes?: string;
+    inspectorId?: string;
+  }) => {
+    try {
+      const response = await api.post('/inspections', data);
+      return response.data;
+    } catch (error) {
+      // Mock response for development
+      return {
+        data: {
+          id: Date.now().toString(),
+          ...data,
+          scheduledDate: data.scheduledDate,
+          completedDate: null,
+          status: 'SCHEDULED',
+          photos: [],
+          report: null,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          property: {
+            id: data.propertyId,
+            title: 'Mock Property',
+            address: 'Mock Address',
+            borough: 'MANHATTAN'
+          }
+        }
+      };
+    }
+  },
+
+  updateInspection: async (id: string, data: {
+    type?: string;
+    scheduledDate?: string;
+    completedDate?: string;
+    status?: string;
+    notes?: string;
+    inspectorId?: string;
+    report?: any;
+  }) => {
+    try {
+      const response = await api.put(`/inspections/${id}`, data);
+      return response.data;
+    } catch (error) {
+      // Mock response for development
+      const inspection = MOCK_INSPECTIONS.find(i => i.id === id);
+      return {
+        data: {
+          ...inspection,
+          ...data,
+          updatedAt: new Date().toISOString()
+        }
+      };
+    }
+  },
+
+  deleteInspection: async (id: string) => {
+    try {
+      const response = await api.delete(`/inspections/${id}`);
+      return response.data;
+    } catch (error) {
+      // Mock response for development
+      return { data: { message: 'Inspection deleted successfully' } };
+    }
+  },
+
+  uploadPhotos: async (id: string, photos: File[]) => {
+    try {
+      const formData = new FormData();
+      photos.forEach(photo => {
+        formData.append('photos', photo);
+      });
+
+      const response = await api.post(`/inspections/${id}/photos`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      return response.data;
+    } catch (error) {
+      // Mock response for development
+      const photoUrls = photos.map(photo => `/mock-uploads/inspections/${photo.name}`);
+      return {
+        data: {
+          inspection: {
+            id,
+            photos: photoUrls
+          },
+          uploadedPhotos: photoUrls
+        }
+      };
+    }
+  },
+
+  deletePhoto: async (id: string, photoIndex: number) => {
+    try {
+      const response = await api.delete(`/inspections/${id}/photos/${photoIndex}`);
+      return response.data;
+    } catch (error) {
+      // Mock response for development
+      return {
+        data: {
+          inspection: {
+            id,
+            photos: []
+          }
+        }
+      };
+    }
+  },
+
+  getAvailability: async (propertyId: string, startDate?: string, endDate?: string) => {
+    try {
+      const params: any = {};
+      if (startDate) params.startDate = startDate;
+      if (endDate) params.endDate = endDate;
+      
+      const response = await api.get(`/inspections/property/${propertyId}/availability`, { params });
+      return response.data;
+    } catch (error) {
+      // Mock response for development
+      return {
+        data: {
+          scheduledInspections: MOCK_INSPECTIONS.filter(i => 
+            i.property.id === propertyId && i.status === 'SCHEDULED'
+          )
+        }
+      };
+    }
+  },
+
+  getStats: async () => {
+    try {
+      const response = await api.get('/inspections/dashboard/stats');
+      return response.data;
+    } catch (error) {
+      // Mock response for development
+      return {
+        data: {
+          totalInspections: 15,
+          scheduledInspections: 5,
+          upcomingInspections: 3,
+          completedThisMonth: 8,
+          overdueInspections: 1
         }
       };
     }

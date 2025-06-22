@@ -131,6 +131,76 @@ class LeaseService {
       body: JSON.stringify({ escalationRate }),
     });
   }
+
+  // Lease notifications and alerts
+  async getLeaseAlerts() {
+    return this.request('/leases/alerts');
+  }
+
+  // Automated lease renewal notifications
+  async scheduleRenewalNotification(leaseId: string, daysBeforeExpiration: number) {
+    return this.request(`/leases/${leaseId}/schedule-renewal-notification`, {
+      method: 'POST',
+      body: JSON.stringify({ daysBeforeExpiration }),
+    });
+  }
+
+  // Lease template management
+  async getLeaseTemplates() {
+    return this.request('/leases/templates');
+  }
+
+  async createLeaseTemplate(templateData: any) {
+    return this.request('/leases/templates', {
+      method: 'POST',
+      body: JSON.stringify(templateData),
+    });
+  }
+
+  // Bulk lease operations
+  async bulkUpdateLeases(leaseIds: string[], updateData: Partial<UpdateLeaseData>) {
+    return this.request('/leases/bulk-update', {
+      method: 'PUT',
+      body: JSON.stringify({ leaseIds, updateData }),
+    });
+  }
+
+  // Lease analytics
+  async getLeaseAnalytics(dateRange?: { start: string; end: string }) {
+    const params = dateRange ? new URLSearchParams(dateRange).toString() : '';
+    const endpoint = params ? `/leases/analytics?${params}` : '/leases/analytics';
+    return this.request(endpoint);
+  }
+
+  // Export lease data
+  async exportLeases(format: 'csv' | 'pdf' | 'excel', filters?: any) {
+    const params = new URLSearchParams({ format, ...filters }).toString();
+    return this.request(`/leases/export?${params}`);
+  }
+
+  // Lease violation tracking
+  async createViolation(leaseId: string, violationData: any) {
+    return this.request(`/leases/${leaseId}/violations`, {
+      method: 'POST',
+      body: JSON.stringify(violationData),
+    });
+  }
+
+  async getViolations(leaseId: string) {
+    return this.request(`/leases/${leaseId}/violations`);
+  }
+
+  // Lease payment integration
+  async getLeasePayments(leaseId: string) {
+    return this.request(`/leases/${leaseId}/payments`);
+  }
+
+  async createLeasePayment(leaseId: string, paymentData: any) {
+    return this.request(`/leases/${leaseId}/payments`, {
+      method: 'POST',
+      body: JSON.stringify(paymentData),
+    });
+  }
 }
 
 export const leaseService = new LeaseService();

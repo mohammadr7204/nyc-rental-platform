@@ -55,6 +55,7 @@ import maintenanceRoutes from './routes/maintenance';
 import vendorRoutes from './routes/vendors';
 import analyticsRoutes from './routes/analytics';
 import inspectionRoutes from './routes/inspections';
+import leaseRoutes from './routes/leases';
 
 // Import middleware
 import { authenticateToken } from './middleware/auth';
@@ -231,6 +232,7 @@ app.use('/api/maintenance', authenticateToken, maintenanceRoutes);
 app.use('/api/vendors', authenticateToken, vendorRoutes);
 app.use('/api/analytics', authenticateToken, analyticsRoutes);
 app.use('/api/inspections', authenticateToken, inspectionRoutes);
+app.use('/api/leases', authenticateToken, leaseRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/fare-act', fareActRoutes);
 
@@ -314,6 +316,12 @@ if (features.apiDocs) {
           description: 'Property inspection scheduling and management',
           protected: true,
           methods: ['GET /', 'GET /:id', 'POST /', 'PUT /:id', 'DELETE /:id', 'POST /:id/photos', 'DELETE /:id/photos/:photoIndex', 'GET /property/:propertyId/availability', 'GET /dashboard/stats']
+        },
+        leases: {
+          path: '/api/leases',
+          description: 'Lease management and renewal automation',
+          protected: true,
+          methods: ['GET /', 'GET /:id', 'POST /from-application/:applicationId', 'PUT /:id', 'POST /:id/terminate', 'GET /renewals/candidates', 'POST /:id/renew', 'GET /dashboard/stats']
         },
         search: {
           path: '/api/search',

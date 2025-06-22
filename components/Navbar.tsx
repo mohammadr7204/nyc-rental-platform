@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Menu, X, User, Bell, MessageSquare, Heart, Building, Search, LogOut, Wrench, Users, BarChart3 } from 'lucide-react';
+import { Menu, X, User, Bell, MessageSquare, Heart, Building, Search, LogOut, Wrench, Users, BarChart3, ClipboardCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { messageService } from '@/services/api';
@@ -51,6 +51,7 @@ export function Navbar() {
     { name: 'Saved Properties', href: '/saved', icon: Heart },
     ...(user?.userType === 'LANDLORD' || user?.userType === 'PROPERTY_MANAGER' ? [
       { name: 'My Properties', href: '/my-properties', icon: Building },
+      { name: 'Inspections', href: '/inspections', icon: ClipboardCheck },
       { name: 'Analytics', href: '/analytics', icon: BarChart3 },
       { name: 'Vendors', href: '/vendors', icon: Users }
     ] : []),
@@ -111,6 +112,15 @@ export function Navbar() {
                     <Wrench className="h-4 w-4" />
                   </Button>
                 </Link>
+
+                {/* Inspections Quick Access - Only for Landlords */}
+                {(user?.userType === 'LANDLORD' || user?.userType === 'PROPERTY_MANAGER') && (
+                  <Link href="/inspections">
+                    <Button variant="ghost" size="sm" className="text-gray-700 hover:text-blue-600">
+                      <ClipboardCheck className="h-4 w-4" />
+                    </Button>
+                  </Link>
+                )}
 
                 {/* Analytics Quick Access - Only for Landlords */}
                 {(user?.userType === 'LANDLORD' || user?.userType === 'PROPERTY_MANAGER') && (

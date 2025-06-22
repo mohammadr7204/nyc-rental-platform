@@ -54,6 +54,7 @@ import fareActRoutes from './routes/fareAct';
 import maintenanceRoutes from './routes/maintenance';
 import vendorRoutes from './routes/vendors';
 import analyticsRoutes from './routes/analytics';
+import inspectionRoutes from './routes/inspections';
 
 // Import middleware
 import { authenticateToken } from './middleware/auth';
@@ -229,6 +230,7 @@ app.use('/api/payments', authenticateToken, paymentRoutes);
 app.use('/api/maintenance', authenticateToken, maintenanceRoutes);
 app.use('/api/vendors', authenticateToken, vendorRoutes);
 app.use('/api/analytics', authenticateToken, analyticsRoutes);
+app.use('/api/inspections', authenticateToken, inspectionRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/fare-act', fareActRoutes);
 
@@ -306,6 +308,12 @@ if (features.apiDocs) {
           description: 'Property and portfolio analytics',
           protected: true,
           methods: ['GET /property/:propertyId', 'GET /portfolio', 'GET /financial-report', 'GET /market-insights']
+        },
+        inspections: {
+          path: '/api/inspections',
+          description: 'Property inspection scheduling and management',
+          protected: true,
+          methods: ['GET /', 'GET /:id', 'POST /', 'PUT /:id', 'DELETE /:id', 'POST /:id/photos', 'DELETE /:id/photos/:photoIndex', 'GET /property/:propertyId/availability', 'GET /dashboard/stats']
         },
         search: {
           path: '/api/search',

@@ -12,10 +12,6 @@ import Redis from 'ioredis';
 import { config, features, validateConfig } from './config';
 import { logger, httpLogger, logSecurityEvent } from './utils/logger';
 import {
-  healthCheckHandler,
-  readinessHandler,
-  livenessHandler,
-  metricsHandler,
   performanceMonitoring,
   setupGracefulShutdown
 } from './utils/health';
@@ -57,6 +53,7 @@ import analyticsRoutes from './routes/analytics';
 import inspectionRoutes from './routes/inspections';
 import leaseRoutes from './routes/leases';
 import tenantRoutes from './routes/tenant';
+import healthRoutes from './routes/health'; // New comprehensive health routes
 
 // Import middleware
 import { authenticateToken } from './middleware/auth';
@@ -216,11 +213,8 @@ if (features.rateLimit) {
   ));
 }
 
-// Health check endpoints (before authentication)
-app.get('/health', healthCheckHandler);
-app.get('/health/ready', readinessHandler);
-app.get('/health/live', livenessHandler);
-app.get('/metrics', metricsHandler);
+// Health check endpoints (before authentication) - New comprehensive health routes
+app.use('/', healthRoutes);
 
 // API routes
 app.use('/api/auth', authRoutes);
@@ -343,8 +337,14 @@ if (features.apiDocs) {
         },
         health: {
           path: '/health',
-          description: 'Health check endpoints',
-          methods: ['GET /health', 'GET /health/ready', 'GET /health/live', 'GET /metrics']
+          description: 'Comprehensive health monitoring and system metrics',
+          methods: [
+            'GET /health - Overall health check',
+            'GET /health/live - Liveness probe',
+            'GET /health/ready - Readiness probe',
+            'GET /health/system - System information',
+            'GET /health/metrics - Application metrics'
+          ]
         }
       },
       rateLimit: features.rateLimit ? {
@@ -395,6 +395,10 @@ server.listen(PORT, HOST, () => {
   console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`🌐 Frontend URL: ${config.services.frontend.url}`);
   console.log(`💚 Health Check: http://${HOST}:${PORT}/health`);
+  console.log(`🔍 Liveness Probe: http://${HOST}:${PORT}/health/live`);
+  console.log(`✅ Readiness Probe: http://${HOST}:${PORT}/health/ready`);
+  console.log(`📈 Metrics: http://${HOST}:${PORT}/health/metrics`);
+  console.log(`🖥️  System Info: http://${HOST}:${PORT}/health/system`);
 
   if (features.apiDocs) {
     console.log(`📚 API Documentation: http://${HOST}:${PORT}/api/docs`);

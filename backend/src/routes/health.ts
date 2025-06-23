@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import Redis from 'ioredis';
 import { logger } from '../config/logger';
+import { getMetrics } from '../middleware/performanceMonitoring';
 import os from 'os';
 import fs from 'fs/promises';
 
@@ -230,34 +231,127 @@ router.get('/health/system', async (req: Request, res: Response) => {
   }
 });
 
-// Application metrics endpoint
+// Application metrics endpoint - now using the comprehensive performance monitoring
 router.get('/health/metrics', async (req: Request, res: Response) => {
   try {
-    // In a production environment, you'd collect these metrics over time
-    const metrics = {
-      timestamp: new Date().toISOString(),
-      uptime: process.uptime(),
-      requests: {
-        total: 0, // Would be tracked in middleware
-        current: 0,
-        errors: 0
-      },
-      database: {
-        connections: 0, // Would be from connection pool
-        queries: 0,
-        slowQueries: 0
-      },
-      memory: process.memoryUsage(),
-      response_times: {
-        avg: 0,
-        p95: 0,
-        p99: 0
-      }
-    };
-
+    const metrics = getMetrics();
     res.json(metrics);
   } catch (error) {
     logger.error('Metrics check failed:', error);
+    res.status(500).json({
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+// Enhanced metrics endpoint with detailed breakdown
+router.get('/health/metrics/detailed', async (req: Request, res: Response) => {
+  try {
+    const metrics = getMetrics();
+    
+    // Add additional system metrics
+    const detailedMetrics = {
+      ...metrics,
+      system: {
+        memory: {
+          process: process.memoryUsage(),
+          system: {
+            total: os.totalmem(),
+            free: os.freemem(),
+            used: os.totalmem() - os.freemem(),
+            percentage: ((os.totalmem() - os.freemem()) / os.totalmem()) * 100
+          }
+        },
+        cpu: {
+          count: os.cpus().length,
+          loadAverage: os.loadavg(),
+          usage: process.cpuUsage()
+        },
+        platform: {
+          type: os.type(),
+          platform: os.platform(),
+          arch: os.arch(),
+          release: os.release(),
+          hostname: os.hostname()
+        },
+        uptime: {
+          system: os.uptime(),
+          process: process.uptime()
+        }
+      },
+      node: {
+        version: process.version,
+        versions: process.versions,
+        features: process.features,
+        pid: process.pid
+      }
+    };
+
+    res.json(detailedMetrics);
+  } catch (error) {
+    logger.error('Detailed metrics check failed:', error);
+    res.status(500).json({
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+// Endpoint performance breakdown
+router.get('/health/endpoints', async (req: Request, res: Response) => {
+  try {
+    const metrics = getMetrics();
+    
+    const endpointMetrics = {
+      timestamp: new Date().toISOString(),
+      totalRequests: metrics.requests.total,
+      endpoints: metrics.endpoints,
+      slowestEndpoints: metrics.endpoints
+        .sort((a, b) => b.avgResponseTime - a.avgResponseTime)
+        .slice(0, 10),
+      mostUsedEndpoints: metrics.endpoints
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 10),
+      responseTimes: metrics.responseTimes,
+      errorRate: metrics.requests.total > 0 ? 
+        (metrics.requests.errors / metrics.requests.total) * 100 : 0
+    };
+
+    res.json(endpointMetrics);
+  } catch (error) {
+    logger.error('Endpoint metrics check failed:', error);
+    res.status(500).json({
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+// Error analysis endpoint
+router.get('/health/errors', async (req: Request, res: Response) => {
+  try {
+    const metrics = getMetrics();
+    
+    const errorAnalysis = {
+      timestamp: new Date().toISOString(),
+      summary: {
+        total: metrics.errors.total,
+        recent: metrics.errors.recent.length,
+        errorRate: metrics.requests.total > 0 ? 
+          (metrics.requests.errors / metrics.requests.total) * 100 : 0
+      },
+      recentErrors: metrics.errors.recent,
+      statusCodeBreakdown: metrics.requests.byStatus,
+      topErrorEndpoints: metrics.endpoints
+        .filter(endpoint => {
+          // This is a simplified filter - in a real implementation you'd track errors per endpoint
+          return endpoint.avgResponseTime > 1000; // Assume slow = potentially problematic
+        })
+        .sort((a, b) => b.avgResponseTime - a.avgResponseTime)
+        .slice(0, 5)
+    };
+
+    res.json(errorAnalysis);
+  } catch (error) {
+    logger.error('Error analysis check failed:', error);
     res.status(500).json({
       error: error instanceof Error ? error.message : 'Unknown error'
     });

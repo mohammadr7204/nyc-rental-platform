@@ -56,6 +56,7 @@ import vendorRoutes from './routes/vendors';
 import analyticsRoutes from './routes/analytics';
 import inspectionRoutes from './routes/inspections';
 import leaseRoutes from './routes/leases';
+import tenantRoutes from './routes/tenant';
 
 // Import middleware
 import { authenticateToken } from './middleware/auth';
@@ -233,6 +234,7 @@ app.use('/api/vendors', authenticateToken, vendorRoutes);
 app.use('/api/analytics', authenticateToken, analyticsRoutes);
 app.use('/api/inspections', authenticateToken, inspectionRoutes);
 app.use('/api/leases', authenticateToken, leaseRoutes);
+app.use('/api/tenant', authenticateToken, tenantRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/fare-act', fareActRoutes);
 
@@ -322,6 +324,12 @@ if (features.apiDocs) {
           description: 'Lease management and renewal automation',
           protected: true,
           methods: ['GET /', 'GET /:id', 'POST /from-application/:applicationId', 'PUT /:id', 'POST /:id/terminate', 'GET /renewals/candidates', 'POST /:id/renew', 'GET /dashboard/stats']
+        },
+        tenant: {
+          path: '/api/tenant',
+          description: 'Tenant portal and self-service features',
+          protected: true,
+          methods: ['GET /dashboard', 'GET /leases', 'GET /payments', 'GET /payments/:paymentId/receipt', 'GET /leases/:leaseId/documents/:documentId', 'GET /maintenance', 'POST /payments/rent']
         },
         search: {
           path: '/api/search',

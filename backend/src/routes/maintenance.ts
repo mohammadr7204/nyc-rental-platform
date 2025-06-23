@@ -1,6 +1,6 @@
 import express from 'express';
 import { PrismaClient } from '@prisma/client';
-import { authenticateToken } from '../middleware/auth';
+import { authenticateToken, AuthRequest } from '../middleware/auth';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
@@ -23,14 +23,14 @@ const storage = multer.diskStorage({
   }
 });
 
-const upload = multer({ 
+const upload = multer({
   storage,
   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
   fileFilter: (req, file, cb) => {
     const allowedTypes = /jpeg|jpg|png|gif|webp/;
     const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
     const mimetype = allowedTypes.test(file.mimetype);
-    
+
     if (mimetype && extname) {
       return cb(null, true);
     } else {
@@ -40,10 +40,10 @@ const upload = multer({
 });
 
 // Create a new maintenance request
-router.post('/', authenticateToken, upload.array('photos', 5), async (req, res) => {
+router.post('/', authenticateToken, upload.array('photos', 5), async (req: AuthRequest, res) => {
   try {
     const { propertyId, title, description, priority = 'MEDIUM' } = req.body;
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
 
     if (!userId) {
       return res.status(401).json({ error: 'User not authenticated' });
@@ -55,7 +55,7 @@ router.post('/', authenticateToken, upload.array('photos', 5), async (req, res) 
         id: propertyId,
         OR: [
           { ownerId: userId }, // Landlord
-          { 
+          {
             applications: {
               some: {
                 applicantId: userId,
@@ -72,7 +72,7 @@ router.post('/', authenticateToken, upload.array('photos', 5), async (req, res) 
     }
 
     // Process uploaded photos
-    const photos = req.files ? (req.files as Express.Multer.File[]).map(file => 
+    const photos = req.files ? (req.files as Express.Multer.File[]).map(file =>
       `/uploads/maintenance/${file.filename}`
     ) : [];
 
@@ -118,9 +118,9 @@ router.post('/', authenticateToken, upload.array('photos', 5), async (req, res) 
 });
 
 // Get maintenance requests for a user
-router.get('/', authenticateToken, async (req, res) => {
+router.get('/', authenticateToken, async (req: AuthRequest, res) => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
     const { propertyId, status, priority, page = 1, limit = 10 } = req.query;
 
     if (!userId) {
@@ -128,11 +128,11 @@ router.get('/', authenticateToken, async (req, res) => {
     }
 
     const skip = (Number(page) - 1) * Number(limit);
-    
+
     const whereClause: any = {
       OR: [
         { tenantId: userId }, // Requests by this user
-        { 
+        {
           property: { ownerId: userId } // Requests for properties owned by this user
         }
       ]
@@ -199,10 +199,10 @@ router.get('/', authenticateToken, async (req, res) => {
 });
 
 // Get a specific maintenance request
-router.get('/:id', authenticateToken, async (req, res) => {
+router.get('/:id', authenticateToken, async (req: AuthRequest, res) => {
   try {
     const { id } = req.params;
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
 
     if (!userId) {
       return res.status(401).json({ error: 'User not authenticated' });
@@ -249,11 +249,11 @@ router.get('/:id', authenticateToken, async (req, res) => {
 });
 
 // Update maintenance request status (landlord only)
-router.patch('/:id', authenticateToken, async (req, res) => {
+router.patch('/:id', authenticateToken, async (req: AuthRequest, res) => {
   try {
     const { id } = req.params;
     const { status, cost, scheduledDate, notes } = req.body;
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
 
     if (!userId) {
       return res.status(401).json({ error: 'User not authenticated' });
@@ -272,7 +272,7 @@ router.patch('/:id', authenticateToken, async (req, res) => {
     }
 
     const updateData: any = {};
-    
+
     if (status) updateData.status = status;
     if (cost !== undefined) updateData.cost = parseInt(cost);
     if (scheduledDate) updateData.scheduledDate = new Date(scheduledDate);
@@ -313,10 +313,10 @@ router.patch('/:id', authenticateToken, async (req, res) => {
 });
 
 // Delete maintenance request
-router.delete('/:id', authenticateToken, async (req, res) => {
+router.delete('/:id', authenticateToken, async (req: AuthRequest, res) => {
   try {
     const { id } = req.params;
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
 
     if (!userId) {
       return res.status(401).json({ error: 'User not authenticated' });
@@ -359,9 +359,9 @@ router.delete('/:id', authenticateToken, async (req, res) => {
 });
 
 // Get maintenance statistics for dashboard
-router.get('/stats/summary', authenticateToken, async (req, res) => {
+router.get('/stats/summary', authenticateToken, async (req: AuthRequest, res) => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
 
     if (!userId) {
       return res.status(401).json({ error: 'User not authenticated' });
@@ -378,8 +378,8 @@ router.get('/stats/summary', authenticateToken, async (req, res) => {
     }
 
     const isLandlord = user.userType === 'LANDLORD' || user.userType === 'PROPERTY_MANAGER';
-    
-    const whereClause = isLandlord 
+
+    const whereClause = isLandlord
       ? { property: { ownerId: userId } }
       : { tenantId: userId };
 
@@ -391,17 +391,17 @@ router.get('/stats/summary', authenticateToken, async (req, res) => {
       urgentRequests
     ] = await Promise.all([
       prisma.maintenanceRequest.count({ where: whereClause }),
-      prisma.maintenanceRequest.count({ 
-        where: { ...whereClause, status: 'PENDING' } 
+      prisma.maintenanceRequest.count({
+        where: { ...whereClause, status: 'PENDING' }
       }),
-      prisma.maintenanceRequest.count({ 
-        where: { ...whereClause, status: 'IN_PROGRESS' } 
+      prisma.maintenanceRequest.count({
+        where: { ...whereClause, status: 'IN_PROGRESS' }
       }),
-      prisma.maintenanceRequest.count({ 
-        where: { ...whereClause, status: 'COMPLETED' } 
+      prisma.maintenanceRequest.count({
+        where: { ...whereClause, status: 'COMPLETED' }
       }),
-      prisma.maintenanceRequest.count({ 
-        where: { ...whereClause, priority: 'URGENT' } 
+      prisma.maintenanceRequest.count({
+        where: { ...whereClause, priority: 'URGENT' }
       })
     ]);
 
@@ -422,7 +422,7 @@ router.get('/stats/summary', authenticateToken, async (req, res) => {
 
       if (completedWithScheduled.length > 0) {
         const totalHours = completedWithScheduled.reduce((sum, request) => {
-          const responseTime = new Date(request.scheduledDate!).getTime() - 
+          const responseTime = new Date(request.scheduledDate!).getTime() -
                              new Date(request.createdAt).getTime();
           return sum + (responseTime / (1000 * 60 * 60)); // Convert to hours
         }, 0);

@@ -366,7 +366,6 @@ router.get('/compliance/fare-act',
   asyncHandler(async (req: AuthRequest, res: Response) => {
     const properties = await prisma.property.findMany({
       include: {
-        FareActCompliance: true,
         owner: {
           select: { firstName: true, lastName: true, email: true }
         }
@@ -384,7 +383,7 @@ router.get('/compliance/fare-act',
           isCompliant: compliance.isCompliant,
           violations: compliance.violations,
           warnings: compliance.warnings,
-          lastUpdated: property.FareActCompliance?.complianceDate || property.updatedAt
+          lastUpdated: property.updatedAt
         };
       })
     );

@@ -280,10 +280,7 @@ class FareActService {
     }>;
   }> {
     const properties = await prisma.property.findMany({
-      where: { ownerId },
-      include: {
-        FareActCompliance: true
-      }
+      where: { ownerId }
     });
 
     const complianceChecks = await Promise.all(
@@ -294,7 +291,7 @@ class FareActService {
           title: property.title,
           isCompliant: compliance.isCompliant,
           violations: compliance.violations,
-          lastUpdated: property.FareActCompliance?.complianceDate || property.updatedAt
+          lastUpdated: property.updatedAt
         };
       })
     );
@@ -315,24 +312,19 @@ class FareActService {
     reason: string;
   }> {
     const property = await prisma.property.findUnique({
-      where: { id: propertyId },
-      include: { FareActCompliance: true }
+      where: { id: propertyId }
     });
 
     if (!property) {
       return { canCharge: false, reason: 'Property not found' };
     }
 
-    // Check if broker was hired by landlord
-    if (property.FareActCompliance) {
-      const brokerRelationship = JSON.parse(property.FareActCompliance.brokerRelationship as string);
-
-      if (brokerRelationship.type === 'LANDLORD_BROKER') {
-        return {
-          canCharge: false,
-          reason: 'FARE Act violation: Broker was hired by landlord, tenant cannot be charged'
-        };
-      }
+    // For now, check if it's a broker fee property
+    if (property.isBrokerFee && property.brokerFee > 0) {
+      return {
+        canCharge: false,
+        reason: 'FARE Act compliance check required for broker fee properties'
+      };
     }
 
     // Check if tenant explicitly hired their own broker

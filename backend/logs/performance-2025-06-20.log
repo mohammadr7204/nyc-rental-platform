@@ -1,0 +1,2 @@
+{"duration":1750,"level":"warn","message":"Slow request detected","method":"GET","requestId":"e0a1c9b0-981a-4d12-b8dd-1490b33d0551","timestamp":"2025-06-20T21:09:33.427Z","url":"/api/messages/unread-count","userId":"cmc2w2y7e00045egfxevay11q"}
+{"duration":1611,"level":"warn","message":"Slow request detected","method":"GET","requestId":"3418f68b-83ac-48eb-8e98-c00329c4f324","timestamp":"2025-06-20T21:17:34.327Z","url":"/api/messages/unread-count","userId":"cmc2w2y7e00045egfxevay11q"}

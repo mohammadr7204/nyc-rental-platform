@@ -1,6 +1,6 @@
 import express from 'express';
 import { PrismaClient } from '@prisma/client';
-import { authenticateToken } from '../middleware/auth';
+import { authenticateToken, AuthRequest } from '../middleware/auth';
 import { z } from 'zod';
 
 const router = express.Router();
@@ -15,14 +15,18 @@ const createVendorSchema = z.object({
   address: z.string().optional(),
   website: z.string().url().optional().or(z.literal('')),
   description: z.string().optional(),
-  specialties: z.array(z.string()),
-  serviceAreas: z.array(z.string()),
+  specialties: z.array(z.string()).min(1, 'At least one specialty is required'),
+  serviceAreas: z.array(z.string()).min(1, 'At least one service area is required'),
   businessLicense: z.string().optional(),
-  insurance: z.any().optional(),
+  insurance: z.object({
+    provider: z.string(),
+    policyNumber: z.string(),
+    expiryDate: z.string()
+  }).optional(),
   certifications: z.array(z.string()).optional(),
   hourlyRate: z.number().positive().optional(),
   emergencyRate: z.number().positive().optional(),
-  minimumCharge: z.number().positive().optional(),
+  minimumCharge: z.number().positive().optional()
 });
 
 const updateVendorSchema = createVendorSchema.partial();
@@ -31,7 +35,7 @@ const createVendorServiceSchema = z.object({
   serviceType: z.enum([
     'PLUMBING', 'ELECTRICAL', 'HVAC', 'CARPENTRY', 'PAINTING', 'FLOORING',
     'APPLIANCE_REPAIR', 'PEST_CONTROL', 'CLEANING', 'LANDSCAPING', 'ROOFING',
-    'WINDOWS', 'GENERAL_HANDYMAN', 'LOCKSMITH', 'MASONRY', 'DRYWALL', 
+    'WINDOWS', 'GENERAL_HANDYMAN', 'LOCKSMITH', 'MASONRY', 'DRYWALL',
     'TILE_WORK', 'EMERGENCY_REPAIR', 'OTHER'
   ]),
   description: z.string().optional(),
@@ -54,7 +58,7 @@ const createVendorReviewSchema = z.object({
 });
 
 // GET /api/vendors - Get all vendors for a landlord
-router.get('/', authenticateToken, async (req, res) => {
+router.get('/', authenticateToken, async (req: AuthRequest, res) => {
   try {
     const { page = 1, limit = 10, search, serviceType, borough, rating } = req.query;
     const userId = req.user?.userId;
@@ -142,7 +146,7 @@ router.get('/', authenticateToken, async (req, res) => {
 });
 
 // GET /api/vendors/:id - Get specific vendor
-router.get('/:id', authenticateToken, async (req, res) => {
+router.get('/:id', authenticateToken, async (req: AuthRequest, res) => {
   try {
     const { id } = req.params;
     const userId = req.user?.userId;
@@ -189,7 +193,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
 });
 
 // POST /api/vendors - Create new vendor
-router.post('/', authenticateToken, async (req, res) => {
+router.post('/', authenticateToken, async (req: AuthRequest, res) => {
   try {
     const userId = req.user?.userId;
     if (!userId) {
@@ -226,11 +230,11 @@ router.post('/', authenticateToken, async (req, res) => {
 });
 
 // PUT /api/vendors/:id - Update vendor
-router.put('/:id', authenticateToken, async (req, res) => {
+router.put('/:id', authenticateToken, async (req: AuthRequest, res) => {
   try {
     const { id } = req.params;
     const userId = req.user?.userId;
-    
+
     const validatedData = updateVendorSchema.parse(req.body);
 
     // Check if vendor belongs to user
@@ -270,7 +274,7 @@ router.put('/:id', authenticateToken, async (req, res) => {
 });
 
 // DELETE /api/vendors/:id - Soft delete vendor (set inactive)
-router.delete('/:id', authenticateToken, async (req, res) => {
+router.delete('/:id', authenticateToken, async (req: AuthRequest, res) => {
   try {
     const { id } = req.params;
     const userId = req.user?.userId;
@@ -296,11 +300,11 @@ router.delete('/:id', authenticateToken, async (req, res) => {
 });
 
 // POST /api/vendors/:id/services - Add service to vendor
-router.post('/:id/services', authenticateToken, async (req, res) => {
+router.post('/:id/services', authenticateToken, async (req: AuthRequest, res) => {
   try {
     const { id } = req.params;
     const userId = req.user?.userId;
-    
+
     const validatedData = createVendorServiceSchema.parse(req.body);
 
     // Check if vendor belongs to user
@@ -334,7 +338,7 @@ router.post('/:id/services', authenticateToken, async (req, res) => {
 });
 
 // DELETE /api/vendors/:vendorId/services/:serviceId - Remove service from vendor
-router.delete('/:vendorId/services/:serviceId', authenticateToken, async (req, res) => {
+router.delete('/:vendorId/services/:serviceId', authenticateToken, async (req: AuthRequest, res) => {
   try {
     const { vendorId, serviceId } = req.params;
     const userId = req.user?.userId;
@@ -360,11 +364,11 @@ router.delete('/:vendorId/services/:serviceId', authenticateToken, async (req, r
 });
 
 // POST /api/vendors/:id/reviews - Add review for vendor
-router.post('/:id/reviews', authenticateToken, async (req, res) => {
+router.post('/:id/reviews', authenticateToken, async (req: AuthRequest, res) => {
   try {
     const { id } = req.params;
     const userId = req.user?.userId;
-    
+
     const validatedData = createVendorReviewSchema.parse(req.body);
 
     // Check if vendor exists and user has worked with them
@@ -394,7 +398,8 @@ router.post('/:id/reviews', authenticateToken, async (req, res) => {
       ...validatedData,
       cost: validatedData.cost ? Math.round(validatedData.cost * 100) : undefined,
       vendorId: id,
-      reviewerId: userId,
+      reviewerId: userId!,
+      workDate: validatedData.workDate ? new Date(validatedData.workDate) : undefined
     };
 
     const review = await prisma.vendorReview.create({
@@ -420,10 +425,10 @@ router.post('/:id/reviews', authenticateToken, async (req, res) => {
 });
 
 // PUT /api/vendors/assign/:maintenanceId - Assign vendor to maintenance request
-router.put('/assign/:maintenanceId', authenticateToken, async (req, res) => {
+router.put('/assign/:maintenanceId', authenticateToken, async (req: AuthRequest, res) => {
   try {
     const { maintenanceId } = req.params;
-    const { vendorId, vendorNotes, vendorEstimate } = req.body;
+    const { vendorId, vendorNotes, vendorEstimate, workStartDate, workEndDate } = req.body;
     const userId = req.user?.userId;
 
     // Check if maintenance request belongs to user's property
@@ -451,14 +456,17 @@ router.put('/assign/:maintenanceId', authenticateToken, async (req, res) => {
       }
     }
 
+    const updateData: any = {};
+
+    if (vendorId) updateData.assignedVendorId = vendorId;
+    if (vendorNotes) updateData.vendorNotes = vendorNotes;
+    if (vendorEstimate) updateData.vendorEstimate = parseInt(vendorEstimate);
+    if (workStartDate) updateData.workStartDate = new Date(workStartDate);
+    if (workEndDate) updateData.workEndDate = new Date(workEndDate);
+
     const updatedRequest = await prisma.maintenanceRequest.update({
       where: { id: maintenanceId },
-      data: {
-        assignedVendorId: vendorId || null,
-        vendorNotes,
-        vendorEstimate: vendorEstimate ? Math.round(vendorEstimate * 100) : null,
-        status: vendorId ? 'SCHEDULED' : 'PENDING',
-      },
+      data: updateData,
       include: {
         assignedVendor: true,
         property: true,
@@ -485,7 +493,7 @@ async function updateVendorRating(vendorId: string) {
 
     if (reviews.length > 0) {
       const averageRating = reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length;
-      
+
       await prisma.vendor.update({
         where: { id: vendorId },
         data: {

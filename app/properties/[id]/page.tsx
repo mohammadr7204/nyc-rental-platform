@@ -4,15 +4,15 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
-import { 
-  ArrowLeft, 
-  Heart, 
-  Share2, 
-  MapPin, 
-  Bed, 
-  Bath, 
-  Square, 
-  Calendar, 
+import {
+  ArrowLeft,
+  Heart,
+  Share2,
+  MapPin,
+  Bed,
+  Bath,
+  Square,
+  Calendar,
   DollarSign,
   Shield,
   MessageSquare,
@@ -37,7 +37,7 @@ export default function PropertyDetailPage() {
   const router = useRouter();
   const { user, isAuthenticated } = useAuth();
   const { toast } = useToast();
-  
+
   const [property, setProperty] = useState<any>(null);
   const [nearbyProperties, setNearbyProperties] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -61,10 +61,10 @@ export default function PropertyDetailPage() {
         propertyService.getProperty(id as string),
         propertyService.getNearbyProperties(id as string).catch(() => ({ data: [] }))
       ]);
-      
+
       setProperty(propertyResponse.data);
       setNearbyProperties(nearbyResponse.data || []);
-      
+
       // Check if property is saved
       if (isAuthenticated && user?.userType === 'RENTER') {
         checkIfSaved(propertyResponse.data.id);
@@ -101,7 +101,7 @@ export default function PropertyDetailPage() {
       setIsSaved(response.saved);
       toast({
         title: response.saved ? 'Property Saved' : 'Property Removed',
-        description: response.saved 
+        description: response.saved
           ? 'Property added to your saved list'
           : 'Property removed from your saved list',
         variant: 'default'
@@ -226,7 +226,7 @@ export default function PropertyDetailPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar />
-      
+
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Back Button */}
         <div className="mb-6">
@@ -248,7 +248,7 @@ export default function PropertyDetailPage() {
                   className="object-cover"
                   sizes="(max-width: 768px) 100vw, 75vw"
                 />
-                
+
                 {/* Virtual Tour Button */}
                 {property.virtualTourUrl && (
                   <Button
@@ -323,15 +323,15 @@ export default function PropertyDetailPage() {
                     </div>
                   </div>
                 </div>
-                
+
                 <div className="flex space-x-2">
                   <Button variant="outline" size="sm" onClick={handleShare}>
                     <Share2 className="h-4 w-4" />
                   </Button>
                   {user?.userType === 'RENTER' && (
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
+                    <Button
+                      variant="outline"
+                      size="sm"
                       onClick={handleSave}
                       disabled={saving}
                     >
@@ -392,8 +392,8 @@ export default function PropertyDetailPage() {
                   ))}
                 </div>
                 {property.amenities.length > 9 && (
-                  <Button 
-                    variant="ghost" 
+                  <Button
+                    variant="ghost"
                     onClick={() => setShowAllAmenities(!showAllAmenities)}
                     className="mt-4"
                   >
@@ -416,7 +416,7 @@ export default function PropertyDetailPage() {
             {/* Location & Map */}
             <div>
               <h2 className="text-xl font-semibold text-gray-900 mb-4">Location & Neighborhood</h2>
-              <PropertyMap 
+              <PropertyMap
                 property={{
                   address: `${property.address}, ${getBoroughDisplayName(property.borough)}, NY ${property.zipCode}`,
                   latitude: property.latitude,
@@ -452,7 +452,7 @@ export default function PropertyDetailPage() {
                 <div className="bg-white p-4 rounded-lg border">
                   <div className="text-sm text-gray-500">Utilities</div>
                   <div className="font-medium">
-                    {property.utilitiesIncluded?.length > 0 
+                    {property.utilitiesIncluded?.length > 0
                       ? property.utilitiesIncluded.join(', ')
                       : 'Not Included'
                     }
@@ -474,7 +474,7 @@ export default function PropertyDetailPage() {
                 {formatCurrency(property.rentAmount)}
                 <span className="text-lg font-normal text-gray-500">/month</span>
               </div>
-              
+
               <div className="space-y-3 mt-4 pt-4 border-t border-gray-200">
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Security Deposit</span>
@@ -512,7 +512,7 @@ export default function PropertyDetailPage() {
             {/* Landlord Info */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Property Owner</h3>
-              
+
               <div className="flex items-center space-x-3 mb-4">
                 <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center">
                   {property.owner.profileImage ? (
@@ -552,10 +552,11 @@ export default function PropertyDetailPage() {
                   Send Message
                 </Button>
               ) : (
-                <Button asChild className="w-full">
-                  <Link href="/login?redirect=" + encodeURIComponent(window.location.pathname)>
-                    Sign in to Contact
-                  </Link>
+                <Button
+                  onClick={() => router.push('/login?redirect=' + encodeURIComponent(window.location.pathname))}
+                  className="w-full"
+                >
+                  Sign in to Contact
                 </Button>
               )}
             </div>

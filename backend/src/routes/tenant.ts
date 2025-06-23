@@ -1,17 +1,17 @@
 import express from 'express';
 import { PrismaClient } from '@prisma/client';
-import { authenticateToken } from '../middleware/auth';
+import { authenticateToken, AuthRequest } from '../middleware/auth';
 
 const router = express.Router();
 const prisma = new PrismaClient();
 
 // Get tenant dashboard data
-router.get('/dashboard', authenticateToken, async (req, res) => {
+router.get('/dashboard', authenticateToken, async (req: AuthRequest, res) => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
 
     if (!userId) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      return res.status(401).json({ error: 'User not authenticated' });
     }
 
     // Get tenant's current lease
@@ -25,18 +25,27 @@ router.get('/dashboard', authenticateToken, async (req, res) => {
       include: {
         property: {
           select: {
+            id: true,
+            title: true,
             address: true,
+            city: true,
+            borough: true,
+            zipCode: true,
             bedrooms: true,
             bathrooms: true,
-            squareFootage: true
+            squareFeet: true,
+            rentAmount: true,
+            photos: true
           }
         },
         landlord: {
           select: {
+            id: true,
             firstName: true,
             lastName: true,
             email: true,
-            phone: true
+            phone: true,
+            profileImage: true
           }
         }
       },
@@ -48,11 +57,14 @@ router.get('/dashboard', authenticateToken, async (req, res) => {
     // Get recent payments (last 5)
     const recentPayments = await prisma.payment.findMany({
       where: {
-        payerId: userId
+        payerId: userId,
+        type: 'RENT'
       },
       include: {
         property: {
           select: {
+            id: true,
+            title: true,
             address: true
           }
         }
@@ -68,7 +80,7 @@ router.get('/dashboard', authenticateToken, async (req, res) => {
     if (currentLease) {
       const today = new Date();
       const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
-      
+
       // Check if rent payment for next month already exists
       const existingPayment = await prisma.payment.findFirst({
         where: {
@@ -132,12 +144,12 @@ router.get('/dashboard', authenticateToken, async (req, res) => {
 });
 
 // Get tenant's leases
-router.get('/leases', authenticateToken, async (req, res) => {
+router.get('/leases', authenticateToken, async (req: AuthRequest, res) => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
 
     if (!userId) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      return res.status(401).json({ error: 'User not authenticated' });
     }
 
     const leases = await prisma.lease.findMany({
@@ -147,18 +159,27 @@ router.get('/leases', authenticateToken, async (req, res) => {
       include: {
         property: {
           select: {
+            id: true,
+            title: true,
             address: true,
+            city: true,
+            borough: true,
+            zipCode: true,
             bedrooms: true,
             bathrooms: true,
-            squareFootage: true
+            squareFeet: true,
+            rentAmount: true,
+            photos: true
           }
         },
         landlord: {
           select: {
+            id: true,
             firstName: true,
             lastName: true,
             email: true,
-            phone: true
+            phone: true,
+            profileImage: true
           }
         },
         documents: {
@@ -188,13 +209,13 @@ router.get('/leases', authenticateToken, async (req, res) => {
 });
 
 // Get tenant's payment history
-router.get('/payments', authenticateToken, async (req, res) => {
+router.get('/payments', authenticateToken, async (req: AuthRequest, res) => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
     const { page = 1, limit = 20, status, type, startDate, endDate } = req.query;
 
     if (!userId) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      return res.status(401).json({ error: 'User not authenticated' });
     }
 
     // Build filter conditions
@@ -225,6 +246,8 @@ router.get('/payments', authenticateToken, async (req, res) => {
       include: {
         property: {
           select: {
+            id: true,
+            title: true,
             address: true
           }
         }
@@ -256,13 +279,13 @@ router.get('/payments', authenticateToken, async (req, res) => {
 });
 
 // Get payment receipt
-router.get('/payments/:paymentId/receipt', authenticateToken, async (req, res) => {
+router.get('/payments/:paymentId/receipt', authenticateToken, async (req: AuthRequest, res) => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
     const { paymentId } = req.params;
 
     if (!userId) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      return res.status(401).json({ error: 'User not authenticated' });
     }
 
     const payment = await prisma.payment.findFirst({
@@ -273,6 +296,8 @@ router.get('/payments/:paymentId/receipt', authenticateToken, async (req, res) =
       include: {
         property: {
           select: {
+            id: true,
+            title: true,
             address: true
           }
         },
@@ -307,13 +332,13 @@ router.get('/payments/:paymentId/receipt', authenticateToken, async (req, res) =
 });
 
 // Get lease document
-router.get('/leases/:leaseId/documents/:documentId', authenticateToken, async (req, res) => {
+router.get('/leases/:leaseId/documents/:documentId', authenticateToken, async (req: AuthRequest, res) => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
     const { leaseId, documentId } = req.params;
 
     if (!userId) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      return res.status(401).json({ error: 'User not authenticated' });
     }
 
     // Verify the lease belongs to the tenant
@@ -355,13 +380,13 @@ router.get('/leases/:leaseId/documents/:documentId', authenticateToken, async (r
 });
 
 // Get tenant maintenance requests
-router.get('/maintenance', authenticateToken, async (req, res) => {
+router.get('/maintenance', authenticateToken, async (req: AuthRequest, res) => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
     const { status } = req.query;
 
     if (!userId) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      return res.status(401).json({ error: 'User not authenticated' });
     }
 
     const where: any = {
@@ -377,14 +402,17 @@ router.get('/maintenance', authenticateToken, async (req, res) => {
       include: {
         property: {
           select: {
+            id: true,
+            title: true,
             address: true
           }
         },
         assignedVendor: {
           select: {
-            name: true,
-            phone: true,
-            email: true
+            id: true,
+            companyName: true,
+            contactPerson: true,
+            phone: true
           }
         }
       },
@@ -405,13 +433,13 @@ router.get('/maintenance', authenticateToken, async (req, res) => {
 });
 
 // Submit rent payment
-router.post('/payments/rent', authenticateToken, async (req, res) => {
+router.post('/payments/rent', authenticateToken, async (req: AuthRequest, res) => {
   try {
-    const userId = req.user?.id;
-    const { leaseId, amount, paymentMethodId } = req.body;
+    const userId = req.user?.userId;
+    const { leaseId, amount, paymentMethod } = req.body;
 
     if (!userId) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      return res.status(401).json({ error: 'User not authenticated' });
     }
 
     // Verify the lease belongs to the tenant
@@ -442,16 +470,10 @@ router.post('/payments/rent', authenticateToken, async (req, res) => {
         amount,
         type: 'RENT',
         status: 'PENDING',
-        paymentMethod: 'CARD',
-        propertyId: lease.propertyId,
         payerId: userId,
-        recipientId: lease.landlordId,
-        description: `Rent payment for ${lease.property.address}`,
-        metadata: {
-          leaseId,
-          paymentMethodId,
-          month: new Date().toISOString().slice(0, 7) // YYYY-MM format
-        }
+        receiverId: lease.landlordId,
+        description: `Rent payment for ${lease.property.title}`,
+        dueDate: new Date()
       }
     });
 
@@ -459,7 +481,7 @@ router.post('/payments/rent', authenticateToken, async (req, res) => {
     // For now, we'll mark it as completed
     await prisma.payment.update({
       where: { id: payment.id },
-      data: { 
+      data: {
         status: 'COMPLETED',
         stripePaymentIntentId: `pi_simulated_${payment.id}`
       }

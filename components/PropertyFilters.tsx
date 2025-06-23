@@ -118,9 +118,11 @@ export function PropertyFilters({
             />
           </div>
         </div>
-        <div className="mt-2 text-xs text-gray-500">
-          Average: {formatCurrency(filterOptions.priceRange.avg)}
-        </div>
+        {filterOptions.priceRange?.avg && (
+          <div className="mt-2 text-xs text-gray-500">
+            Average: {formatCurrency(filterOptions.priceRange.avg)}
+          </div>
+        )}
       </div>
 
       {/* Borough */}
@@ -129,7 +131,7 @@ export function PropertyFilters({
           Borough
         </label>
         <div className="space-y-2">
-          {filterOptions.boroughs.map((borough) => (
+          {filterOptions.boroughs?.map((borough) => (
             <label key={borough.value} className="flex items-center">
               <input
                 type="checkbox"
@@ -199,7 +201,7 @@ export function PropertyFilters({
           Property Type
         </label>
         <div className="space-y-2">
-          {filterOptions.propertyTypes.map((type) => (
+          {filterOptions.propertyTypes?.map((type) => (
             <label key={type.value} className="flex items-center">
               <input
                 type="checkbox"
@@ -251,7 +253,7 @@ export function PropertyFilters({
           Amenities
         </label>
         <div className="space-y-2 max-h-40 overflow-y-auto">
-          {filterOptions.amenities.slice(0, 10).map((amenity) => (
+          {filterOptions.amenities?.slice(0, 10).map((amenity) => (
             <label key={amenity.value} className="flex items-center">
               <input
                 type="checkbox"

@@ -45,11 +45,11 @@ interface PropertyCardProps {
   viewMode?: 'grid' | 'list';
 }
 
-export function PropertyCard({ 
-  property, 
-  showSaveButton = true, 
-  onSave, 
-  viewMode = 'grid' 
+export function PropertyCard({
+  property,
+  showSaveButton = true,
+  onSave,
+  viewMode = 'grid'
 }: PropertyCardProps) {
   const [isSaved, setIsSaved] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -58,7 +58,7 @@ export function PropertyCard({
   const handleSave = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     if (!isAuthenticated) {
       window.location.href = '/login?redirect=' + encodeURIComponent(window.location.pathname);
       return;
@@ -79,7 +79,7 @@ export function PropertyCard({
   const handleContact = (e: React.MouseEvent, contactType: 'message' | 'phone') => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     if (!isAuthenticated) {
       window.location.href = '/login?redirect=' + encodeURIComponent(window.location.pathname);
       return;
@@ -110,7 +110,7 @@ export function PropertyCard({
                 className="object-cover"
                 sizes="256px"
               />
-              
+
               {/* Badges */}
               <div className="absolute top-2 left-2 flex flex-col space-y-1">
                 {!property.isBrokerFee && (
@@ -148,12 +148,12 @@ export function PropertyCard({
                     {formatCurrency(property.rentAmount)}
                     <span className="text-lg font-normal text-gray-500">/month</span>
                   </div>
-                  
+
                   {/* Title */}
                   <h3 className="text-xl font-semibold text-gray-900 mb-2">
                     {property.title}
                   </h3>
-                  
+
                   {/* Address */}
                   <div className="flex items-center text-gray-600 mb-3">
                     <MapPin className="h-4 w-4 mr-2" />
@@ -162,7 +162,7 @@ export function PropertyCard({
                     </span>
                     {property.distance && (
                       <span className="ml-2 text-sm text-blue-600">
-                        • {property.distance < 1 
+                        • {property.distance < 1
                           ? `${Math.round(property.distance * 1000)}m away`
                           : `${property.distance.toFixed(1)}km away`}
                       </span>
@@ -245,7 +245,7 @@ export function PropertyCard({
                 {/* Owner Info */}
                 <div className="flex items-center space-x-3">
                   <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
-                    {property.owner.profileImage ? (
+                    {property.owner?.profileImage ? (
                       <Image
                         src={property.owner.profileImage}
                         alt={`${property.owner.firstName} ${property.owner.lastName}`}
@@ -255,15 +255,15 @@ export function PropertyCard({
                       />
                     ) : (
                       <span className="text-sm font-medium text-gray-600">
-                        {property.owner.firstName[0]}{property.owner.lastName[0]}
+                        {property.owner?.firstName?.[0] || 'U'}{property.owner?.lastName?.[0] || 'U'}
                       </span>
                     )}
                   </div>
                   <div>
                     <div className="text-base font-medium text-gray-900">
-                      {property.owner.firstName} {property.owner.lastName}
+                      {property.owner?.firstName || 'Unknown'} {property.owner?.lastName || 'Owner'}
                     </div>
-                    {property.owner.verificationStatus === 'VERIFIED' && (
+                    {property.owner?.verificationStatus === 'VERIFIED' && (
                       <div className="flex items-center text-sm text-green-600">
                         <Shield className="h-4 w-4 mr-1" />
                         Verified Owner
@@ -271,7 +271,7 @@ export function PropertyCard({
                     )}
                   </div>
                 </div>
-                
+
                 {/* Security Deposit & Stats */}
                 <div className="text-right">
                   <div className="text-sm text-gray-500 mb-1">Security Deposit</div>
@@ -305,7 +305,7 @@ export function PropertyCard({
             className="object-cover"
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
           />
-          
+
           {/* Badges */}
           <div className="absolute top-2 left-2 flex flex-col space-y-1">
             {!property.isBrokerFee && (
@@ -365,7 +365,7 @@ export function PropertyCard({
           {/* Distance for location searches */}
           {property.distance && (
             <div className="text-sm text-blue-600 mb-2">
-              {property.distance < 1 
+              {property.distance < 1
                 ? `${Math.round(property.distance * 1000)}m away`
                 : `${property.distance.toFixed(1)}km away`}
             </div>
@@ -431,7 +431,7 @@ export function PropertyCard({
                 <MessageCircle className="h-3 w-3 mr-1" />
                 Message
               </Button>
-              {property.owner.phone && (
+              {property.owner?.phone && (
                 <Button
                   size="sm"
                   variant="outline"
@@ -449,7 +449,7 @@ export function PropertyCard({
           <div className="flex items-center justify-between pt-3 border-t border-gray-100">
             <div className="flex items-center space-x-2">
               <div className="w-6 h-6 bg-gray-200 rounded-full flex items-center justify-center">
-                {property.owner.profileImage ? (
+                {property.owner?.profileImage ? (
                   <Image
                     src={property.owner.profileImage}
                     alt={`${property.owner.firstName} ${property.owner.lastName}`}
@@ -459,15 +459,15 @@ export function PropertyCard({
                   />
                 ) : (
                   <span className="text-xs font-medium text-gray-600">
-                    {property.owner.firstName[0]}{property.owner.lastName[0]}
+                    {property.owner?.firstName?.[0] || 'U'}{property.owner?.lastName?.[0] || 'U'}
                   </span>
                 )}
               </div>
               <div>
                 <div className="text-sm font-medium text-gray-900">
-                  {property.owner.firstName} {property.owner.lastName}
+                  {property.owner?.firstName || 'Unknown'} {property.owner?.lastName || 'Owner'}
                 </div>
-                {property.owner.verificationStatus === 'VERIFIED' && (
+                {property.owner?.verificationStatus === 'VERIFIED' && (
                   <div className="flex items-center text-xs text-green-600">
                     <Shield className="h-3 w-3 mr-1" />
                     Verified
@@ -475,7 +475,7 @@ export function PropertyCard({
                 )}
               </div>
             </div>
-            
+
             {/* Security Deposit */}
             <div className="text-right">
               <div className="text-xs text-gray-500">Security Deposit</div>

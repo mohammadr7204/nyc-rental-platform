@@ -23,7 +23,7 @@ model User {
   updatedAt         DateTime @updatedAt
   isActive          Boolean  @default(true)
   lastLoginAt       DateTime?
-  
+
   // Additional Profile Fields
   dateOfBirth       DateTime?
   ssn               String?   // Encrypted
@@ -34,7 +34,7 @@ model User {
   workPhone         String?
   emergencyContact  Json?
   backgroundCheckStatus String @default("PENDING")
-  
+
   // Stripe Connect Fields for Landlords
   stripeAccountId   String?   // Stripe Connect account ID
   stripeAccountStatus String @default("PENDING") // PENDING, VERIFIED, RESTRICTED, SUSPENDED
@@ -43,10 +43,12 @@ model User {
   stripePayoutsEnabled Boolean @default(false)
   bankAccountLast4  String?   // Last 4 digits of bank account
   defaultPaymentMethod String? // For renters making payments
-  
+
   // Relationships
   properties        Property[]
   applications      Application[]
+  leases            Lease[]
+  landlordLeases    Lease[] @relation("LandlordLeases")
   sentMessages      Message[] @relation("SentMessages")
   receivedMessages  Message[] @relation("ReceivedMessages")
   payments          Payment[] @relation("PayerPayments")
@@ -58,7 +60,7 @@ model User {
   maintenanceRequests MaintenanceRequest[] @relation("TenantRequests")
   vendors           Vendor[] @relation("LandlordVendors")
   vendorReviews     VendorReview[]
-  
+
   @@map("users")
 }
 
@@ -69,9 +71,9 @@ model EmailVerification {
   expiresAt DateTime
   used      Boolean  @default(false)
   createdAt DateTime @default(now())
-  
+
   user      User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+
   @@map("email_verifications")
 }
 
@@ -82,9 +84,9 @@ model PasswordReset {
   expiresAt DateTime
   used      Boolean  @default(false)
   createdAt DateTime @default(now())
-  
+
   user      User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+
   @@map("password_resets")
 }
 
@@ -96,7 +98,7 @@ model EmailLog {
   status    EmailStatus
   error     String?
   sentAt    DateTime @default(now())
-  
+
   @@map("email_logs")
 }
 
@@ -130,20 +132,20 @@ model Property {
   utilitiesIncluded String[]
   parkingAvailable Boolean @default(false)
   furnished       Boolean @default(false)
-  
+
   // FARE Act Compliance Fields
   landlordBrokerFee Int    @default(0)
   tenantFees       Json?   // Itemized tenant fees
   feeDisclosure    String? // FARE Act disclosure text
   brokerLicense    String?
-  
+
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
-  
+
   // Foreign Keys
   ownerId         String
   owner           User @relation(fields: [ownerId], references: [id])
-  
+
   // Relationships
   applications    Application[]
   messages        Message[]
@@ -151,7 +153,7 @@ model Property {
   maintenanceRequests MaintenanceRequest[]
   leases          Lease[]
   inspections     PropertyInspection[]
-  
+
   @@map("properties")
 }
 
@@ -166,32 +168,32 @@ model Application {
   monthlyIncome   Int?
   notes           String?
   landlordNotes   String?
-  
+
   // Additional Application Fields
   previousAddress String?
   reasonForMoving String?
   pets            Json?
   vehicles        Json?
   emergencyContact Json?
-  
+
   // Background Check Results
   backgroundCheckId String?
   backgroundCheckStatus String @default("PENDING")
   backgroundCheckResults Json?
-  
+
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
-  
+
   // Foreign Keys
   applicantId     String
   propertyId      String
   applicant       User @relation(fields: [applicantId], references: [id])
   property        Property @relation(fields: [propertyId], references: [id])
-  
+
   // Relationships
   payments        Payment[]
   lease           Lease?
-  
+
   @@unique([applicantId, propertyId])
   @@map("applications")
 }
@@ -206,18 +208,21 @@ model Lease {
   status          LeaseStatus @default(DRAFT)
   signedAt        DateTime?
   documentUrl     String?
-  
-  // Foreign Keys
+
+    // Foreign Keys
   applicationId   String   @unique
   tenantId        String
   landlordId      String
-  
+  propertyId      String
+
   application     Application @relation(fields: [applicationId], references: [id])
   tenant          User @relation(fields: [tenantId], references: [id])
-  
+  landlord        User @relation("LandlordLeases", fields: [landlordId], references: [id])
+  property        Property @relation(fields: [propertyId], references: [id])
+
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
-  
+
   @@map("leases")
 }
 
@@ -229,16 +234,16 @@ model Message {
   isRead      Boolean  @default(false)
   isSystem    Boolean  @default(false)
   createdAt   DateTime @default(now())
-  
+
   // Foreign Keys
   senderId    String
   receiverId  String
   propertyId  String?
-  
+
   sender      User @relation("SentMessages", fields: [senderId], references: [id])
   receiver    User @relation("ReceivedMessages", fields: [receiverId], references: [id])
   property    Property? @relation(fields: [propertyId], references: [id])
-  
+
   @@map("messages")
 }
 
@@ -259,16 +264,16 @@ model Payment {
   stripeFee       Int?      // Stripe processing fee
   landlordAmount  Int?      // Amount after fees transferred to landlord
   createdAt       DateTime @default(now())
-  
+
   // Foreign Keys
   payerId         String
   receiverId      String?   // Landlord receiving the payment via Stripe Connect
   applicationId   String?
-  
+
   payer           User @relation("PayerPayments", fields: [payerId], references: [id])
   receiver        User? @relation("ReceiverPayments", fields: [receiverId], references: [id])
   application     Application? @relation(fields: [applicationId], references: [id])
-  
+
   @@map("payments")
 }
 
@@ -279,14 +284,14 @@ model Review {
   reviewType  ReviewType
   response    String?
   createdAt   DateTime @default(now())
-  
+
   // Foreign Keys
   reviewerId  String
   revieweeId  String
   propertyId  String?
-  
+
   reviewer    User @relation(fields: [reviewerId], references: [id])
-  
+
   @@map("reviews")
 }
 
@@ -294,14 +299,14 @@ model SavedProperty {
   id          String   @id @default(cuid())
   notes       String?
   createdAt   DateTime @default(now())
-  
+
   // Foreign Keys
   userId      String
   propertyId  String
-  
+
   user        User @relation(fields: [userId], references: [id])
   property    Property @relation(fields: [propertyId], references: [id])
-  
+
   @@unique([userId, propertyId])
   @@map("saved_properties")
 }
@@ -318,22 +323,22 @@ model MaintenanceRequest {
   completedAt DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  
+
   // Vendor Assignment Fields
   assignedVendorId String?
   vendorNotes     String?
   vendorEstimate  Int?
   workStartDate   DateTime?
   workEndDate     DateTime?
-  
+
   // Foreign Keys
   propertyId  String
   tenantId    String
-  
+
   property    Property @relation(fields: [propertyId], references: [id])
   tenant      User @relation("TenantRequests", fields: [tenantId], references: [id])
   assignedVendor Vendor? @relation(fields: [assignedVendorId], references: [id])
-  
+
   @@map("maintenance_requests")
 }
 
@@ -352,29 +357,29 @@ model Vendor {
   isActive        Boolean  @default(true)
   rating          Float?    // Average rating from reviews
   totalReviews    Int      @default(0)
-  
+
   // Business Information
   businessLicense String?
   insurance       Json?     // Insurance information
   certifications  String[]  // Professional certifications
-  
+
   // Pricing Information
   hourlyRate      Int?      // Hourly rate in cents
   emergencyRate   Int?      // Emergency/after-hours rate in cents
   minimumCharge   Int?      // Minimum charge in cents
-  
+
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
-  
+
   // Foreign Keys
   addedById       String    // Landlord who added this vendor
   addedBy         User @relation("LandlordVendors", fields: [addedById], references: [id])
-  
+
   // Relationships
   services        VendorService[]
   maintenanceRequests MaintenanceRequest[]
   reviews         VendorReview[]
-  
+
   @@map("vendors")
 }
 
@@ -385,14 +390,14 @@ model VendorService {
   basePrice   Int?      // Base price in cents
   priceType   PriceType @default(HOURLY) // HOURLY, FLAT_RATE, PER_SQFT, ESTIMATE_REQUIRED
   isEmergency Boolean  @default(false)
-  
+
   // Foreign Keys
   vendorId    String
   vendor      Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
-  
+
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  
+
   @@unique([vendorId, serviceType])
   @@map("vendor_services")
 }
@@ -405,27 +410,27 @@ model VendorReview {
   timeliness  Int      // 1-5 rating for timeliness
   communication Int    // 1-5 rating for communication
   value       Int      // 1-5 rating for value/pricing
-  
+
   // Work Details
   workType    String?
   workDate    DateTime?
   cost        Int?     // Total cost of work in cents
-  
+
   // Response from vendor
   vendorResponse String?
   vendorResponseDate DateTime?
-  
+
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  
+
   // Foreign Keys
   vendorId    String
   reviewerId  String   // Landlord who left the review
   maintenanceRequestId String? // Optional link to specific maintenance request
-  
+
   vendor      Vendor @relation(fields: [vendorId], references: [id])
   reviewer    User @relation(fields: [reviewerId], references: [id])
-  
+
   @@map("vendor_reviews")
 }
 
@@ -438,16 +443,16 @@ model PropertyInspection {
   notes        String?
   photos       String[]
   report       Json?
-  
+
   // Foreign Keys
   propertyId   String
   inspectorId  String?
-  
+
   property     Property @relation(fields: [propertyId], references: [id])
-  
+
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
-  
+
   @@map("property_inspections")
 }
 
@@ -459,7 +464,7 @@ model FareActCompliance {
   brokerRelationship String
   complianceDate    DateTime @default(now())
   violations        Json?
-  
+
   @@map("fare_act_compliance")
 }
 
@@ -473,7 +478,7 @@ model BackgroundCheck {
   reportUrl       String?
   requestedAt     DateTime @default(now())
   completedAt     DateTime?
-  
+
   @@map("background_checks")
 }
 
@@ -487,7 +492,7 @@ model ActivityLog {
   ipAddress   String?
   userAgent   String?
   createdAt   DateTime @default(now())
-  
+
   @@map("activity_logs")
 }
 
@@ -497,7 +502,7 @@ model SystemSettings {
   value       String
   description String?
   updatedAt   DateTime @updatedAt
-  
+
   @@map("system_settings")
 }
 

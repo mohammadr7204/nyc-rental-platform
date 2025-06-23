@@ -56,7 +56,8 @@ import inspectionRoutes from './routes/inspections';
 import leaseRoutes from './routes/leases';
 import tenantRoutes from './routes/tenant';
 import healthRoutes from './routes/health'; // Updated comprehensive health routes
-import notificationRoutes from './routes/notifications'; // New push notification routes
+import notificationRoutes from './routes/notifications'; // Push notification routes
+import mobileRoutes from './routes/mobile'; // Mobile offline API routes
 
 // Import middleware
 import { authenticateToken } from './middleware/auth';
@@ -218,7 +219,7 @@ if (features.rateLimit) {
   // Mobile API rate limiting (more lenient for mobile apps)
   app.use('/api/mobile/', createRateLimit(
     300000, // 5 minutes
-    200, // 200 requests per 5 minutes for mobile
+    500, // 500 requests per 5 minutes for mobile (higher for sync operations)
     'Mobile API rate limit exceeded'
   ));
 
@@ -253,6 +254,7 @@ app.use('/api/inspections', authenticateToken, inspectionRoutes);
 app.use('/api/leases', authenticateToken, leaseRoutes);
 app.use('/api/tenant', authenticateToken, tenantRoutes);
 app.use('/api/notifications', authenticateToken, notificationRoutes);
+app.use('/api/mobile', authenticateToken, mobileRoutes); // Mobile offline API
 app.use('/api/search', searchRoutes);
 app.use('/api/fare-act', fareActRoutes);
 
@@ -266,6 +268,7 @@ app.use('/api/v1/payments', authenticateToken, paymentRoutes);
 app.use('/api/v1/maintenance', authenticateToken, maintenanceRoutes);
 app.use('/api/v1/tenant', authenticateToken, tenantRoutes);
 app.use('/api/v1/notifications', authenticateToken, notificationRoutes);
+app.use('/api/v1/mobile', authenticateToken, mobileRoutes); // Mobile offline API v1
 app.use('/api/v1/search', searchRoutes);
 
 // Protected routes
@@ -296,8 +299,9 @@ if (features.apiDocs) {
         supported: true,
         minVersion: '1.0.0',
         endpoints: '/api/v1/*',
-        rateLimit: '200 requests per 5 minutes',
-        pushNotifications: 'Firebase Cloud Messaging (FCM)'
+        rateLimit: '500 requests per 5 minutes',
+        pushNotifications: 'Firebase Cloud Messaging (FCM)',
+        offlineSupport: 'Data sync and offline caching'
       },
       endpoints: {
         auth: {
@@ -374,6 +378,20 @@ if (features.apiDocs) {
             'DELETE /token/:token - Remove device token'
           ]
         },
+        mobile: {
+          path: '/api/mobile',
+          mobilePath: '/api/v1/mobile',
+          description: 'Mobile app offline support and data synchronization',
+          protected: true,
+          methods: [
+            'POST /sync - Synchronize offline data changes',
+            'GET /offline-bundle - Get essential offline data',
+            'GET /reference-data - Get static reference data for caching',
+            'POST /queue-action - Queue offline actions for later sync',
+            'GET /cached-properties - Get cached property data',
+            'POST /resolve-conflict - Resolve sync conflicts'
+          ]
+        },
         search: {
           path: '/api/search',
           mobilePath: '/api/v1/search',
@@ -399,7 +417,7 @@ if (features.apiDocs) {
         api: `${config.rateLimit.api.maxRequests} requests per ${config.rateLimit.api.windowMs / 60000} minutes`,
         auth: `${config.rateLimit.auth.maxRequests} requests per ${config.rateLimit.auth.windowMs / 60000} minutes`,
         upload: `${config.rateLimit.upload.maxRequests} requests per ${config.rateLimit.upload.windowMs / 60000} minutes`,
-        mobile: '200 requests per 5 minutes',
+        mobile: '500 requests per 5 minutes (higher for sync operations)',
         notifications: '100 requests per 5 minutes'
       } : 'Disabled',
       cors: {
@@ -452,6 +470,7 @@ server.listen(PORT, HOST, () => {
   console.log(`📊 Detailed Metrics: http://${HOST}:${PORT}/health/metrics/detailed`);
   console.log(`🖥️  System Info: http://${HOST}:${PORT}/health/system`);
   console.log(`📱 Mobile API: http://${HOST}:${PORT}/api/v1/*`);
+  console.log(`📱 Mobile Offline: http://${HOST}:${PORT}/api/mobile/*`);
   console.log(`🔔 Push Notifications: http://${HOST}:${PORT}/api/notifications/*`);
 
   if (features.apiDocs) {

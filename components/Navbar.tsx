@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Menu, X, User, Bell, MessageSquare, Heart, Building, Search, LogOut, Wrench, Users, BarChart3, ClipboardCheck, FileText } from 'lucide-react';
+import { Menu, X, User, Bell, MessageSquare, Heart, Building, Search, LogOut, Wrench, Users, BarChart3, ClipboardCheck, FileText, Home, CreditCard, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { messageService } from '@/services/api';
@@ -44,8 +44,14 @@ export function Navbar() {
     { name: 'FARE Act', href: '/fare-act' },
   ];
 
+  // Updated user navigation with tenant-specific items
   const userNavigation = [
     { name: 'Dashboard', href: '/dashboard', icon: User },
+    ...(user?.userType === 'RENTER' ? [
+      { name: 'Tenant Portal', href: '/tenant-portal', icon: Home },
+      { name: 'Payment History', href: '/tenant-portal/payment-history', icon: CreditCard },
+      { name: 'Lease Documents', href: '/tenant-portal/documents', icon: FileText },
+    ] : []),
     { name: 'Messages', href: '/messages', icon: MessageSquare },
     { name: 'Maintenance', href: '/maintenance', icon: Wrench },
     { name: 'Saved Properties', href: '/saved', icon: Heart },
@@ -114,6 +120,15 @@ export function Navbar() {
                   </Button>
                 </Link>
 
+                {/* Tenant Portal Quick Access - Only for Renters */}
+                {user?.userType === 'RENTER' && (
+                  <Link href="/tenant-portal">
+                    <Button variant="ghost" size="sm" className="text-gray-700 hover:text-blue-600">
+                      <Home className="h-4 w-4" />
+                    </Button>
+                  </Link>
+                )}
+
                 {/* Lease Management Quick Access - Only for Landlords */}
                 {(user?.userType === 'LANDLORD' || user?.userType === 'PROPERTY_MANAGER') && (
                   <Link href="/leases">
@@ -180,6 +195,7 @@ export function Navbar() {
                       <div className="px-4 py-2 text-sm text-gray-700 border-b">
                         <div className="font-medium">{user?.firstName} {user?.lastName}</div>
                         <div className="text-gray-500">{user?.email}</div>
+                        <div className="text-xs text-blue-600 capitalize">{user?.userType?.toLowerCase()}</div>
                       </div>
                       
                       {userNavigation.map((item) => {
@@ -259,6 +275,7 @@ export function Navbar() {
                     {user?.firstName} {user?.lastName}
                   </div>
                   <div className="text-sm text-gray-500">{user?.email}</div>
+                  <div className="text-xs text-blue-600 capitalize">{user?.userType?.toLowerCase()}</div>
                 </div>
                 
                 {userNavigation.map((item) => {

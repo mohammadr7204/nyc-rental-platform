@@ -56,6 +56,7 @@ import inspectionRoutes from './routes/inspections';
 import leaseRoutes from './routes/leases';
 import tenantRoutes from './routes/tenant';
 import healthRoutes from './routes/health'; // Updated comprehensive health routes
+import notificationRoutes from './routes/notifications'; // New push notification routes
 
 // Import middleware
 import { authenticateToken } from './middleware/auth';
@@ -220,6 +221,13 @@ if (features.rateLimit) {
     200, // 200 requests per 5 minutes for mobile
     'Mobile API rate limit exceeded'
   ));
+
+  // Notification API rate limiting
+  app.use('/api/notifications/', createRateLimit(
+    300000, // 5 minutes
+    100, // 100 requests per 5 minutes for notifications
+    'Notification API rate limit exceeded'
+  ));
 }
 
 // Health check endpoints (before authentication) - Comprehensive health routes
@@ -244,6 +252,7 @@ app.use('/api/analytics', authenticateToken, analyticsRoutes);
 app.use('/api/inspections', authenticateToken, inspectionRoutes);
 app.use('/api/leases', authenticateToken, leaseRoutes);
 app.use('/api/tenant', authenticateToken, tenantRoutes);
+app.use('/api/notifications', authenticateToken, notificationRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/fare-act', fareActRoutes);
 
@@ -256,6 +265,7 @@ app.use('/api/v1/messages', authenticateToken, messageRoutes);
 app.use('/api/v1/payments', authenticateToken, paymentRoutes);
 app.use('/api/v1/maintenance', authenticateToken, maintenanceRoutes);
 app.use('/api/v1/tenant', authenticateToken, tenantRoutes);
+app.use('/api/v1/notifications', authenticateToken, notificationRoutes);
 app.use('/api/v1/search', searchRoutes);
 
 // Protected routes
@@ -286,7 +296,8 @@ if (features.apiDocs) {
         supported: true,
         minVersion: '1.0.0',
         endpoints: '/api/v1/*',
-        rateLimit: '200 requests per 5 minutes'
+        rateLimit: '200 requests per 5 minutes',
+        pushNotifications: 'Firebase Cloud Messaging (FCM)'
       },
       endpoints: {
         auth: {
@@ -343,6 +354,26 @@ if (features.apiDocs) {
           protected: true,
           methods: ['GET /dashboard', 'GET /leases', 'GET /payments', 'GET /payments/:paymentId/receipt', 'GET /leases/:leaseId/documents/:documentId', 'GET /maintenance', 'POST /payments/rent']
         },
+        notifications: {
+          path: '/api/notifications',
+          mobilePath: '/api/v1/notifications',
+          description: 'Push notification management and device token registration',
+          protected: true,
+          methods: [
+            'POST /register-token - Register device for push notifications',
+            'PUT /preferences - Update notification preferences',
+            'GET /preferences - Get notification preferences',
+            'POST /test - Send test notification',
+            'POST /payment-reminder - Send payment reminder',
+            'POST /maintenance-update - Send maintenance update',
+            'POST /lease-renewal - Send lease renewal notice',
+            'POST /message - Send message notification',
+            'POST /subscribe-topic - Subscribe to broadcast topic',
+            'POST /broadcast - Send broadcast notification',
+            'GET /history - Get notification history',
+            'DELETE /token/:token - Remove device token'
+          ]
+        },
         search: {
           path: '/api/search',
           mobilePath: '/api/v1/search',
@@ -368,7 +399,8 @@ if (features.apiDocs) {
         api: `${config.rateLimit.api.maxRequests} requests per ${config.rateLimit.api.windowMs / 60000} minutes`,
         auth: `${config.rateLimit.auth.maxRequests} requests per ${config.rateLimit.auth.windowMs / 60000} minutes`,
         upload: `${config.rateLimit.upload.maxRequests} requests per ${config.rateLimit.upload.windowMs / 60000} minutes`,
-        mobile: '200 requests per 5 minutes'
+        mobile: '200 requests per 5 minutes',
+        notifications: '100 requests per 5 minutes'
       } : 'Disabled',
       cors: {
         origins: config.security.corsOrigins,
@@ -420,6 +452,7 @@ server.listen(PORT, HOST, () => {
   console.log(`📊 Detailed Metrics: http://${HOST}:${PORT}/health/metrics/detailed`);
   console.log(`🖥️  System Info: http://${HOST}:${PORT}/health/system`);
   console.log(`📱 Mobile API: http://${HOST}:${PORT}/api/v1/*`);
+  console.log(`🔔 Push Notifications: http://${HOST}:${PORT}/api/notifications/*`);
 
   if (features.apiDocs) {
     console.log(`📚 API Documentation: http://${HOST}:${PORT}/api/docs`);

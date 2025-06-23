@@ -418,6 +418,90 @@ const MOCK_PORTFOLIO_ANALYTICS = {
   ]
 };
 
+// Mock lease data
+const MOCK_LEASES = [
+  {
+    id: '1',
+    startDate: '2025-01-01T00:00:00Z',
+    endDate: '2025-12-31T23:59:59Z',
+    monthlyRent: 4500,
+    securityDeposit: 4500,
+    status: 'ACTIVE',
+    signedAt: '2024-12-15T10:00:00Z',
+    property: {
+      address: '123 Park Avenue, Manhattan, NY 10016',
+      bedrooms: 2,
+      bathrooms: 2,
+      squareFootage: 1200
+    },
+    landlord: {
+      firstName: 'Jane',
+      lastName: 'Smith',
+      email: 'jane.smith@landlord.com',
+      phone: '(555) 987-6543'
+    },
+    documents: [
+      {
+        id: 'doc1',
+        name: 'Lease Agreement - 2025.pdf',
+        type: 'LEASE_AGREEMENT',
+        url: '/mock-lease-agreement.pdf',
+        uploadedAt: '2024-12-15T10:00:00Z'
+      },
+      {
+        id: 'doc2',
+        name: 'Move-in Checklist.pdf',
+        type: 'CHECKLIST',
+        url: '/mock-move-in-checklist.pdf',
+        uploadedAt: '2025-01-01T09:00:00Z'
+      }
+    ]
+  }
+];
+
+// Mock payment data
+const MOCK_PAYMENTS = [
+  {
+    id: '1',
+    amount: 4500,
+    type: 'RENT',
+    status: 'COMPLETED',
+    paymentMethod: 'CARD',
+    createdAt: '2025-06-01T10:00:00Z',
+    property: {
+      address: '123 Park Avenue, Manhattan, NY 10016'
+    },
+    stripePaymentIntentId: 'pi_mock_123',
+    description: 'June 2025 rent payment'
+  },
+  {
+    id: '2',
+    amount: 4500,
+    type: 'RENT',
+    status: 'COMPLETED',
+    paymentMethod: 'CARD',
+    createdAt: '2025-05-01T10:00:00Z',
+    property: {
+      address: '123 Park Avenue, Manhattan, NY 10016'
+    },
+    stripePaymentIntentId: 'pi_mock_456',
+    description: 'May 2025 rent payment'
+  },
+  {
+    id: '3',
+    amount: 4500,
+    type: 'SECURITY_DEPOSIT',
+    status: 'COMPLETED',
+    paymentMethod: 'CARD',
+    createdAt: '2024-12-15T10:00:00Z',
+    property: {
+      address: '123 Park Avenue, Manhattan, NY 10016'
+    },
+    stripePaymentIntentId: 'pi_mock_789',
+    description: 'Security deposit payment'
+  }
+];
+
 // Auth Service
 export const authService = {
   login: async (credentials: { email: string; password: string }) => {
@@ -954,15 +1038,27 @@ export const paymentService = {
     }
   },
 
-  getPaymentHistory: async (page = 1, limit = 20) => {
+  getPaymentHistory: async (page = 1, limit = 20, params?: {
+    status?: string;
+    type?: string;
+    startDate?: string;
+    endDate?: string;
+  }) => {
     try {
-      const response = await api.get('/payments/history', {
-        params: { page, limit }
-      });
+      const queryParams = { page, limit, ...params };
+      const response = await api.get('/payments/history', { params: queryParams });
       return response.data;
     } catch (error) {
       // Mock response for development
-      return { data: [] };
+      return { 
+        data: MOCK_PAYMENTS,
+        pagination: {
+          page,
+          limit,
+          total: MOCK_PAYMENTS.length,
+          totalPages: Math.ceil(MOCK_PAYMENTS.length / limit)
+        }
+      };
     }
   },
 
@@ -975,6 +1071,21 @@ export const paymentService = {
     } catch (error) {
       // Mock response for development
       return { data: [] };
+    }
+  },
+
+  downloadReceipt: async (paymentId: string) => {
+    try {
+      const response = await api.get(`/payments/${paymentId}/receipt`, {
+        responseType: 'blob'
+      });
+      return response;
+    } catch (error) {
+      // Mock response for development
+      console.log(`Mock download receipt for payment: ${paymentId}`);
+      return {
+        data: new Blob(['Mock receipt content'], { type: 'application/pdf' })
+      };
     }
   },
 };
@@ -1115,6 +1226,142 @@ export const maintenanceService = {
           avgResponseTime: 24 // hours
         }
       };
+    }
+  },
+};
+
+// Tenant Service
+export const tenantService = {
+  getDashboard: async () => {
+    try {
+      const response = await api.get('/tenant/dashboard');
+      return response.data;
+    } catch (error) {
+      // Mock response for development
+      return {
+        data: {
+          currentLease: MOCK_LEASES[0],
+          recentPayments: MOCK_PAYMENTS.slice(0, 5),
+          upcomingPayments: [
+            {
+              id: 'rent-' + new Date().getTime(),
+              type: 'Monthly Rent',
+              amount: 4500,
+              dueDate: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toISOString(),
+              status: 'pending',
+              property: MOCK_LEASES[0].property
+            }
+          ],
+          stats: {
+            activeMaintenanceRequests: 2,
+            unreadMessages: 3,
+            totalPayments: MOCK_PAYMENTS.length
+          }
+        }
+      };
+    }
+  },
+
+  getLeases: async () => {
+    try {
+      const response = await api.get('/tenant/leases');
+      return response.data;
+    } catch (error) {
+      // Mock response for development
+      return { data: MOCK_LEASES };
+    }
+  },
+
+  getPayments: async (params?: {
+    page?: number;
+    limit?: number;
+    status?: string;
+    type?: string;
+    startDate?: string;
+    endDate?: string;
+  }) => {
+    try {
+      const response = await api.get('/tenant/payments', { params });
+      return response.data;
+    } catch (error) {
+      // Mock response for development
+      return {
+        data: MOCK_PAYMENTS,
+        pagination: {
+          page: params?.page || 1,
+          limit: params?.limit || 20,
+          total: MOCK_PAYMENTS.length,
+          totalPages: Math.ceil(MOCK_PAYMENTS.length / (params?.limit || 20))
+        }
+      };
+    }
+  },
+
+  getReceipt: async (paymentId: string) => {
+    try {
+      const response = await api.get(`/tenant/payments/${paymentId}/receipt`);
+      return response.data;
+    } catch (error) {
+      // Mock response for development
+      const payment = MOCK_PAYMENTS.find(p => p.id === paymentId);
+      return {
+        data: {
+          receiptData: payment,
+          downloadUrl: `/api/tenant/payments/${paymentId}/receipt.pdf`
+        }
+      };
+    }
+  },
+
+  downloadDocument: async (documentId: string) => {
+    try {
+      const response = await api.get(`/tenant/documents/${documentId}`, {
+        responseType: 'blob'
+      });
+      return response;
+    } catch (error) {
+      // Mock response for development
+      console.log(`Mock download document: ${documentId}`);
+      return {
+        data: new Blob(['Mock document content'], { type: 'application/pdf' })
+      };
+    }
+  },
+
+  getMaintenanceRequests: async (params?: { status?: string }) => {
+    try {
+      const response = await api.get('/tenant/maintenance', { params });
+      return response.data;
+    } catch (error) {
+      // Mock response for development
+      return { data: MOCK_MAINTENANCE_REQUESTS.slice(0, 2) }; // Tenant's requests only
+    }
+  },
+
+  payRent: async (data: {
+    leaseId: string;
+    amount: number;
+    paymentMethodId: string;
+  }) => {
+    try {
+      const response = await api.post('/tenant/payments/rent', data);
+      return response.data;
+    } catch (error) {
+      // Mock response for development
+      const newPayment = {
+        id: Date.now().toString(),
+        amount: data.amount,
+        type: 'RENT',
+        status: 'COMPLETED',
+        paymentMethod: 'CARD',
+        createdAt: new Date().toISOString(),
+        property: MOCK_LEASES[0].property,
+        stripePaymentIntentId: `pi_simulated_${Date.now()}`,
+        description: `Rent payment for ${new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`
+      };
+      
+      MOCK_PAYMENTS.unshift(newPayment);
+      return { data: newPayment };
     }
   },
 };
@@ -1519,6 +1766,186 @@ export const inspectionService = {
           upcomingInspections: 3,
           completedThisMonth: 8,
           overdueInspections: 1
+        }
+      };
+    }
+  },
+};
+
+// Lease Service
+export const leaseService = {
+  getLeases: async (params?: {
+    propertyId?: string;
+    status?: string;
+    page?: number;
+    limit?: number;
+  }) => {
+    try {
+      const response = await api.get('/leases', { params });
+      return response.data;
+    } catch (error) {
+      // Mock response for development
+      return { data: MOCK_LEASES };
+    }
+  },
+
+  getLease: async (id: string) => {
+    try {
+      const response = await api.get(`/leases/${id}`);
+      return response.data;
+    } catch (error) {
+      // Mock response for development
+      const lease = MOCK_LEASES.find(l => l.id === id);
+      return { data: lease || MOCK_LEASES[0] };
+    }
+  },
+
+  getTenantLeases: async () => {
+    try {
+      const response = await api.get('/tenant/leases');
+      return response.data;
+    } catch (error) {
+      // Mock response for development
+      return { data: MOCK_LEASES };
+    }
+  },
+
+  downloadDocument: async (documentId: string) => {
+    try {
+      const response = await api.get(`/leases/documents/${documentId}`, {
+        responseType: 'blob'
+      });
+      return response;
+    } catch (error) {
+      // Mock response for development
+      console.log(`Mock download lease document: ${documentId}`);
+      return {
+        data: new Blob(['Mock lease document content'], { type: 'application/pdf' })
+      };
+    }
+  },
+
+  createFromApplication: async (applicationId: string, data: {
+    startDate: string;
+    endDate: string;
+    monthlyRent: number;
+    securityDeposit: number;
+    template?: string;
+    terms?: any;
+  }) => {
+    try {
+      const response = await api.post(`/leases/from-application/${applicationId}`, data);
+      return response.data;
+    } catch (error) {
+      // Mock response for development
+      return {
+        data: {
+          id: Date.now().toString(),
+          ...data,
+          status: 'DRAFT',
+          createdAt: new Date().toISOString(),
+          property: MOCK_LEASES[0].property,
+          landlord: MOCK_LEASES[0].landlord,
+          documents: []
+        }
+      };
+    }
+  },
+
+  updateLease: async (id: string, data: any) => {
+    try {
+      const response = await api.put(`/leases/${id}`, data);
+      return response.data;
+    } catch (error) {
+      // Mock response for development
+      const lease = MOCK_LEASES.find(l => l.id === id);
+      return {
+        data: {
+          ...lease,
+          ...data,
+          updatedAt: new Date().toISOString()
+        }
+      };
+    }
+  },
+
+  terminateLease: async (id: string, data: {
+    terminationDate: string;
+    reason: string;
+    notes?: string;
+  }) => {
+    try {
+      const response = await api.post(`/leases/${id}/terminate`, data);
+      return response.data;
+    } catch (error) {
+      // Mock response for development
+      return {
+        data: {
+          id,
+          status: 'TERMINATED',
+          terminationDate: data.terminationDate,
+          terminationReason: data.reason,
+          updatedAt: new Date().toISOString()
+        }
+      };
+    }
+  },
+
+  renewLease: async (id: string, data: {
+    newEndDate: string;
+    newMonthlyRent: number;
+    rentIncreasePercentage?: number;
+    terms?: any;
+  }) => {
+    try {
+      const response = await api.post(`/leases/${id}/renew`, data);
+      return response.data;
+    } catch (error) {
+      // Mock response for development
+      return {
+        data: {
+          id: Date.now().toString(),
+          ...data,
+          status: 'PENDING_SIGNATURE',
+          createdAt: new Date().toISOString(),
+          property: MOCK_LEASES[0].property,
+          landlord: MOCK_LEASES[0].landlord
+        }
+      };
+    }
+  },
+
+  getRenewalCandidates: async () => {
+    try {
+      const response = await api.get('/leases/renewals/candidates');
+      return response.data;
+    } catch (error) {
+      // Mock response for development
+      const expiringLeases = MOCK_LEASES.filter(lease => {
+        const endDate = new Date(lease.endDate);
+        const today = new Date();
+        const diffTime = endDate.getTime() - today.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        return diffDays <= 90 && diffDays > 0;
+      });
+      
+      return { data: expiringLeases };
+    }
+  },
+
+  getStats: async () => {
+    try {
+      const response = await api.get('/leases/dashboard/stats');
+      return response.data;
+    } catch (error) {
+      // Mock response for development
+      return {
+        data: {
+          totalLeases: 8,
+          activeLeases: 6,
+          draftLeases: 1,
+          expiringSoon: 2,
+          totalMonthlyRent: 27000
         }
       };
     }

@@ -12,9 +12,11 @@ import Redis from 'ioredis';
 import { config, features, validateConfig } from './config';
 import { logger, httpLogger, logSecurityEvent } from './utils/logger';
 import {
-  performanceMonitoring,
   setupGracefulShutdown
 } from './utils/health';
+
+// Updated performance monitoring
+import { performanceMonitoring } from './middleware/performanceMonitoring';
 
 // Security middleware
 import {
@@ -53,7 +55,7 @@ import analyticsRoutes from './routes/analytics';
 import inspectionRoutes from './routes/inspections';
 import leaseRoutes from './routes/leases';
 import tenantRoutes from './routes/tenant';
-import healthRoutes from './routes/health'; // New comprehensive health routes
+import healthRoutes from './routes/health'; // Updated comprehensive health routes
 
 // Import middleware
 import { authenticateToken } from './middleware/auth';
@@ -131,7 +133,7 @@ app.use(cors({
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID', 'X-CSRF-Token']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID', 'X-CSRF-Token', 'X-API-Version', 'X-Client-Type']
 }));
 
 // Compression for production
@@ -158,7 +160,7 @@ app.use(express.urlencoded({
 // Request logging
 app.use(httpLogger);
 
-// Performance monitoring
+// Enhanced performance monitoring (replacing the old one)
 app.use(performanceMonitoring);
 
 // Session configuration
@@ -211,10 +213,23 @@ if (features.rateLimit) {
     config.rateLimit.upload.maxRequests,
     'Upload rate limit exceeded'
   ));
+
+  // Mobile API rate limiting (more lenient for mobile apps)
+  app.use('/api/mobile/', createRateLimit(
+    300000, // 5 minutes
+    200, // 200 requests per 5 minutes for mobile
+    'Mobile API rate limit exceeded'
+  ));
 }
 
-// Health check endpoints (before authentication) - New comprehensive health routes
+// Health check endpoints (before authentication) - Comprehensive health routes
 app.use('/', healthRoutes);
+
+// API versioning support for mobile compatibility
+app.use('/api/v1', (req, res, next) => {
+  req.headers['x-api-version'] = 'v1';
+  next();
+});
 
 // API routes
 app.use('/api/auth', authRoutes);
@@ -232,9 +247,21 @@ app.use('/api/tenant', authenticateToken, tenantRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/fare-act', fareActRoutes);
 
+// Mobile-optimized API routes (v1 for compatibility)
+app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/users', authenticateToken, userRoutes);
+app.use('/api/v1/properties', propertyRoutes);
+app.use('/api/v1/applications', authenticateToken, applicationRoutes);
+app.use('/api/v1/messages', authenticateToken, messageRoutes);
+app.use('/api/v1/payments', authenticateToken, paymentRoutes);
+app.use('/api/v1/maintenance', authenticateToken, maintenanceRoutes);
+app.use('/api/v1/tenant', authenticateToken, tenantRoutes);
+app.use('/api/v1/search', searchRoutes);
+
 // Protected routes
 if (features.fileUploads) {
   app.use('/api/upload', authenticateToken, uploadRoutes);
+  app.use('/api/v1/upload', authenticateToken, uploadRoutes);
 }
 
 // Admin routes with additional rate limiting
@@ -254,86 +281,73 @@ if (features.apiDocs) {
       features: Object.entries(features)
         .filter(([, enabled]) => enabled)
         .map(([name]) => name),
+      apiVersions: ['v1'],
+      mobileSupport: {
+        supported: true,
+        minVersion: '1.0.0',
+        endpoints: '/api/v1/*',
+        rateLimit: '200 requests per 5 minutes'
+      },
       endpoints: {
         auth: {
           path: '/api/auth',
+          mobilePath: '/api/v1/auth',
           description: 'Authentication endpoints',
           methods: ['POST /login', 'POST /register', 'GET /verify', 'POST /forgot-password']
         },
         users: {
           path: '/api/users',
+          mobilePath: '/api/v1/users',
           description: 'User management',
           protected: true,
           methods: ['GET /profile', 'PUT /profile', 'PUT /change-password']
         },
         properties: {
           path: '/api/properties',
+          mobilePath: '/api/v1/properties',
           description: 'Property listings',
           methods: ['GET /', 'GET /:id', 'POST /', 'PUT /:id', 'DELETE /:id']
         },
         applications: {
           path: '/api/applications',
+          mobilePath: '/api/v1/applications',
           description: 'Rental applications',
           protected: true,
           methods: ['POST /', 'GET /my-applications', 'GET /property-applications']
         },
         messages: {
           path: '/api/messages',
+          mobilePath: '/api/v1/messages',
           description: 'Real-time messaging',
           protected: true,
           methods: ['POST /', 'GET /conversations', 'GET /conversation/:partnerId']
         },
         payments: {
           path: '/api/payments',
+          mobilePath: '/api/v1/payments',
           description: 'Payment processing',
           protected: true,
           methods: ['POST /create-payment-intent', 'POST /confirm-payment', 'GET /history']
         },
         maintenance: {
           path: '/api/maintenance',
+          mobilePath: '/api/v1/maintenance',
           description: 'Maintenance request management',
           protected: true,
           methods: ['POST /', 'GET /', 'GET /:id', 'PATCH /:id', 'DELETE /:id', 'GET /stats/summary']
         },
-        vendors: {
-          path: '/api/vendors',
-          description: 'Vendor management for maintenance contractors',
-          protected: true,
-          methods: ['GET /', 'GET /:id', 'POST /', 'PUT /:id', 'DELETE /:id', 'POST /:id/services', 'DELETE /:vendorId/services/:serviceId', 'POST /:id/reviews', 'PUT /assign/:maintenanceId']
-        },
-        analytics: {
-          path: '/api/analytics',
-          description: 'Property and portfolio analytics',
-          protected: true,
-          methods: ['GET /property/:propertyId', 'GET /portfolio', 'GET /financial-report', 'GET /market-insights']
-        },
-        inspections: {
-          path: '/api/inspections',
-          description: 'Property inspection scheduling and management',
-          protected: true,
-          methods: ['GET /', 'GET /:id', 'POST /', 'PUT /:id', 'DELETE /:id', 'POST /:id/photos', 'DELETE /:id/photos/:photoIndex', 'GET /property/:propertyId/availability', 'GET /dashboard/stats']
-        },
-        leases: {
-          path: '/api/leases',
-          description: 'Lease management and renewal automation',
-          protected: true,
-          methods: ['GET /', 'GET /:id', 'POST /from-application/:applicationId', 'PUT /:id', 'POST /:id/terminate', 'GET /renewals/candidates', 'POST /:id/renew', 'GET /dashboard/stats']
-        },
         tenant: {
           path: '/api/tenant',
+          mobilePath: '/api/v1/tenant',
           description: 'Tenant portal and self-service features',
           protected: true,
           methods: ['GET /dashboard', 'GET /leases', 'GET /payments', 'GET /payments/:paymentId/receipt', 'GET /leases/:leaseId/documents/:documentId', 'GET /maintenance', 'POST /payments/rent']
         },
         search: {
           path: '/api/search',
+          mobilePath: '/api/v1/search',
           description: 'Advanced search',
           methods: ['GET /properties', 'GET /suggestions', 'GET /filters']
-        },
-        fareAct: {
-          path: '/api/fare-act',
-          description: 'FARE Act compliance',
-          methods: ['GET /validate/:propertyId', 'POST /update-compliance', 'GET /info']
         },
         health: {
           path: '/health',
@@ -343,18 +357,23 @@ if (features.apiDocs) {
             'GET /health/live - Liveness probe',
             'GET /health/ready - Readiness probe',
             'GET /health/system - System information',
-            'GET /health/metrics - Application metrics'
+            'GET /health/metrics - Application metrics',
+            'GET /health/metrics/detailed - Detailed metrics',
+            'GET /health/endpoints - Endpoint performance',
+            'GET /health/errors - Error analysis'
           ]
         }
       },
       rateLimit: features.rateLimit ? {
         api: `${config.rateLimit.api.maxRequests} requests per ${config.rateLimit.api.windowMs / 60000} minutes`,
         auth: `${config.rateLimit.auth.maxRequests} requests per ${config.rateLimit.auth.windowMs / 60000} minutes`,
-        upload: `${config.rateLimit.upload.maxRequests} requests per ${config.rateLimit.upload.windowMs / 60000} minutes`
+        upload: `${config.rateLimit.upload.maxRequests} requests per ${config.rateLimit.upload.windowMs / 60000} minutes`,
+        mobile: '200 requests per 5 minutes'
       } : 'Disabled',
       cors: {
         origins: config.security.corsOrigins,
-        credentials: true
+        credentials: true,
+        mobileSupport: 'Origins not required for mobile apps'
       }
     });
   });
@@ -398,7 +417,9 @@ server.listen(PORT, HOST, () => {
   console.log(`🔍 Liveness Probe: http://${HOST}:${PORT}/health/live`);
   console.log(`✅ Readiness Probe: http://${HOST}:${PORT}/health/ready`);
   console.log(`📈 Metrics: http://${HOST}:${PORT}/health/metrics`);
+  console.log(`📊 Detailed Metrics: http://${HOST}:${PORT}/health/metrics/detailed`);
   console.log(`🖥️  System Info: http://${HOST}:${PORT}/health/system`);
+  console.log(`📱 Mobile API: http://${HOST}:${PORT}/api/v1/*`);
 
   if (features.apiDocs) {
     console.log(`📚 API Documentation: http://${HOST}:${PORT}/api/docs`);
@@ -447,7 +468,7 @@ process.on('unhandledRejection', (reason: any, promise: Promise<any>) => {
   }
 });
 
-// Memory monitoring
+// Memory monitoring with enhanced logging
 if (config.isProduction) {
   setInterval(() => {
     const memUsage = process.memoryUsage();
@@ -457,7 +478,10 @@ if (config.isProduction) {
       logger.warn('High memory usage detected', {
         heapUsed: `${Math.round(memUsage.heapUsed / 1024 / 1024)}MB`,
         heapTotal: `${Math.round(memUsage.heapTotal / 1024 / 1024)}MB`,
-        threshold: `${threshold / 1024 / 1024}MB`
+        rss: `${Math.round(memUsage.rss / 1024 / 1024)}MB`,
+        external: `${Math.round(memUsage.external / 1024 / 1024)}MB`,
+        threshold: `${threshold / 1024 / 1024}MB`,
+        uptime: process.uptime()
       });
     }
   }, 60000); // Check every minute

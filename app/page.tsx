@@ -193,7 +193,7 @@ export default function HomePage() {
               for rental listings. Connect directly with property owners and save money.
             </p>
             <Button asChild variant="outline" className="border-green-600 text-green-600 hover:bg-green-600 hover:text-white">
-              <Link href="/about/fare-act">
+              <Link href="/fare-act">
                 Learn More About FARE Act
               </Link>
             </Button>

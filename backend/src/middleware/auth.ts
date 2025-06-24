@@ -25,8 +25,18 @@ export const authenticateToken = async (
       return res.status(401).json({ error: 'Access token required' });
     }
 
+    // Development fallback for mock tokens
+    if (process.env.NODE_ENV === 'development' && token.includes('mock')) {
+      req.user = {
+        userId: '1',
+        email: 'test@example.com',
+        userType: 'RENTER'
+      };
+      return next();
+    }
+
     const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
-    
+
     // Verify user still exists
     const user = await prisma.user.findUnique({
       where: { id: decoded.userId },

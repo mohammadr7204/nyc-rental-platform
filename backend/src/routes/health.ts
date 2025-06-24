@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import Redis from 'ioredis';
-import { logger } from '../config/logger';
+import { logger } from '../utils/logger';
 import { getMetrics } from '../middleware/performanceMonitoring';
 import os from 'os';
 import fs from 'fs/promises';
@@ -116,7 +116,7 @@ router.get('/health', async (req: Request, res: Response) => {
     const memUsage = process.memoryUsage();
     const totalMem = os.totalmem();
     const freeMem = os.freemem();
-    
+
     result.system.memory = {
       used: memUsage.heapUsed,
       total: totalMem,
@@ -140,12 +140,12 @@ router.get('/health', async (req: Request, res: Response) => {
     }
 
     // Determine overall status
-    if (result.services.database.status === 'unhealthy' || 
+    if (result.services.database.status === 'unhealthy' ||
         result.services.redis.status === 'unhealthy') {
       result.status = 'unhealthy';
     }
 
-    const statusCode = result.status === 'healthy' ? 200 : 
+    const statusCode = result.status === 'healthy' ? 200 :
                       result.status === 'degraded' ? 200 : 503;
 
     res.status(statusCode).json(result);
@@ -174,7 +174,7 @@ router.get('/health/ready', async (req: Request, res: Response) => {
     // Check critical dependencies
     await prisma.$queryRaw`SELECT 1`;
     await redis.ping();
-    
+
     res.status(200).json({
       status: 'ready',
       timestamp: new Date().toISOString()
@@ -248,7 +248,7 @@ router.get('/health/metrics', async (req: Request, res: Response) => {
 router.get('/health/metrics/detailed', async (req: Request, res: Response) => {
   try {
     const metrics = getMetrics();
-    
+
     // Add additional system metrics
     const detailedMetrics = {
       ...metrics,
@@ -300,7 +300,7 @@ router.get('/health/metrics/detailed', async (req: Request, res: Response) => {
 router.get('/health/endpoints', async (req: Request, res: Response) => {
   try {
     const metrics = getMetrics();
-    
+
     const endpointMetrics = {
       timestamp: new Date().toISOString(),
       totalRequests: metrics.requests.total,
@@ -312,7 +312,7 @@ router.get('/health/endpoints', async (req: Request, res: Response) => {
         .sort((a, b) => b.count - a.count)
         .slice(0, 10),
       responseTimes: metrics.responseTimes,
-      errorRate: metrics.requests.total > 0 ? 
+      errorRate: metrics.requests.total > 0 ?
         (metrics.requests.errors / metrics.requests.total) * 100 : 0
     };
 
@@ -329,13 +329,13 @@ router.get('/health/endpoints', async (req: Request, res: Response) => {
 router.get('/health/errors', async (req: Request, res: Response) => {
   try {
     const metrics = getMetrics();
-    
+
     const errorAnalysis = {
       timestamp: new Date().toISOString(),
       summary: {
         total: metrics.errors.total,
         recent: metrics.errors.recent.length,
-        errorRate: metrics.requests.total > 0 ? 
+        errorRate: metrics.requests.total > 0 ?
           (metrics.requests.errors / metrics.requests.total) * 100 : 0
       },
       recentErrors: metrics.errors.recent,

@@ -171,7 +171,7 @@ class BackgroundCheckService {
       return reportId;
     } catch (error) {
       console.error('Checkr background check initiation failed:', error);
-      
+
       // Store failed attempt
       await prisma.backgroundCheck.create({
         data: {
@@ -323,7 +323,7 @@ class BackgroundCheckService {
       return reportId;
     } catch (error) {
       console.error('Experian credit check initiation failed:', error);
-      
+
       // Store failed attempt
       await prisma.backgroundCheck.create({
         data: {
@@ -359,9 +359,9 @@ class BackgroundCheckService {
     }
 
     const rawResults = check.results as any;
-    
+
     // Process Experian results
-    const creditScore = rawResults.credit_profile?.models?.find((m: any) => 
+    const creditScore = rawResults.credit_profile?.models?.find((m: any) =>
       m.model_name === 'FICO_SCORE_9')?.score || 0;
 
     const results: CreditCheckResult['results'] = {
@@ -390,7 +390,7 @@ class BackgroundCheckService {
       checkId,
       status: 'COMPLETED',
       results,
-      reportUrl: check.reportUrl
+      reportUrl: check.reportUrl ?? undefined
     };
   }
 
@@ -413,9 +413,9 @@ class BackgroundCheckService {
     return checks.map(check => ({
       id: check.id,
       provider: check.provider,
-      status: check.status,
+      status: check.status ?? '',
       requestedAt: check.requestedAt,
-      completedAt: check.completedAt,
+      completedAt: check.completedAt ?? undefined,
       results: check.results
     }));
   }
@@ -425,11 +425,11 @@ class BackgroundCheckService {
    */
   async handleCheckrWebhook(payload: any): Promise<void> {
     const { object, type } = payload;
-    
+
     if (type === 'report.updated' && object.object === 'report') {
       const reportId = object.id;
       const status = this.mapCheckrStatus(object.status);
-      
+
       await prisma.backgroundCheck.updateMany({
         where: { externalId: reportId, provider: 'checkr' },
         data: {
@@ -485,8 +485,8 @@ class BackgroundCheckService {
 
     // Check for recent bankruptcies
     const publicRecords = rawResults.credit_profile?.public_records || [];
-    const recentBankruptcy = publicRecords.find((record: any) => 
-      record.public_record_type === 'BANKRUPTCY' && 
+    const recentBankruptcy = publicRecords.find((record: any) =>
+      record.public_record_type === 'BANKRUPTCY' &&
       new Date(record.date_filed) > new Date(Date.now() - 2 * 365 * 24 * 60 * 60 * 1000)
     );
 

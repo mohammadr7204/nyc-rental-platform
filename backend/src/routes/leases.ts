@@ -8,6 +8,10 @@ const prisma = new PrismaClient();
 
 // Get all leases for a landlord with filtering
 router.get('/', authenticateToken, async (req, res) => {
+  if (!req.user?.userId) {
+    return res.status(401).json({ error: 'User not authenticated' });
+  }
+
   try {
     const {
       status,
@@ -35,7 +39,7 @@ router.get('/', authenticateToken, async (req, res) => {
       }
     };
 
-    if (status) {
+    if (typeof status === 'string') {
       where.status = status.toUpperCase();
     }
 
@@ -51,7 +55,7 @@ router.get('/', authenticateToken, async (req, res) => {
       const days = parseInt(expiringIn as string);
       const futureDate = new Date();
       futureDate.setDate(futureDate.getDate() + days);
-      
+
       where.endDate = {
         lte: futureDate,
         gte: new Date()
@@ -111,6 +115,10 @@ router.get('/', authenticateToken, async (req, res) => {
 
 // Get lease by ID
 router.get('/:id', authenticateToken, async (req, res) => {
+  if (!req.user?.userId) {
+    return res.status(401).json({ error: 'User not authenticated' });
+  }
+
   try {
     const { id } = req.params;
 
@@ -151,8 +159,8 @@ router.get('/:id', authenticateToken, async (req, res) => {
     }
 
     // Check permissions
-    const canAccess = 
-      lease.application.property.ownerId === req.user.userId || 
+    const canAccess =
+      lease.application.property.ownerId === req.user.userId ||
       lease.application.applicantId === req.user.userId;
 
     if (!canAccess) {
@@ -168,6 +176,10 @@ router.get('/:id', authenticateToken, async (req, res) => {
 
 // Create lease from application
 router.post('/from-application/:applicationId', authenticateToken, async (req, res) => {
+  if (!req.user?.userId) {
+    return res.status(401).json({ error: 'User not authenticated' });
+  }
+
   try {
     const { applicationId } = req.params;
     const {
@@ -228,11 +240,12 @@ router.post('/from-application/:applicationId', authenticateToken, async (req, r
         applicationId,
         tenantId: application.applicantId,
         landlordId: req.user.userId,
+        propertyId: application.propertyId,
         startDate: new Date(startDate),
         endDate: new Date(endDate),
         monthlyRent: parseInt(monthlyRent),
         securityDeposit: parseInt(securityDeposit),
-        terms: terms || {},
+        terms: typeof terms === 'object' && terms !== null ? terms : {},
         status: 'DRAFT'
       },
       include: {
@@ -286,6 +299,10 @@ router.post('/from-application/:applicationId', authenticateToken, async (req, r
 
 // Update lease
 router.put('/:id', authenticateToken, async (req, res) => {
+  if (!req.user?.userId) {
+    return res.status(401).json({ error: 'User not authenticated' });
+  }
+
   try {
     const { id } = req.params;
     const {
@@ -378,6 +395,10 @@ router.put('/:id', authenticateToken, async (req, res) => {
 
 // Terminate lease
 router.post('/:id/terminate', authenticateToken, async (req, res) => {
+  if (!req.user?.userId) {
+    return res.status(401).json({ error: 'User not authenticated' });
+  }
+
   try {
     const { id } = req.params;
     const { terminationDate, reason, refundDeposit = false } = req.body;
@@ -400,7 +421,7 @@ router.post('/:id/terminate', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'Lease not found' });
     }
 
-    const canTerminate = 
+    const canTerminate =
       existingLease.application.property.ownerId === req.user.userId ||
       existingLease.tenantId === req.user.userId;
 
@@ -419,7 +440,7 @@ router.post('/:id/terminate', authenticateToken, async (req, res) => {
         status: 'TERMINATED',
         endDate: new Date(terminationDate),
         terms: {
-          ...existingLease.terms,
+          ...(typeof existingLease.terms === 'object' && existingLease.terms !== null ? existingLease.terms : {}),
           terminationReason: reason,
           terminatedBy: req.user.userId,
           terminatedAt: new Date().toISOString(),
@@ -474,6 +495,10 @@ router.post('/:id/terminate', authenticateToken, async (req, res) => {
 
 // Get lease renewal candidates
 router.get('/renewals/candidates', authenticateToken, async (req, res) => {
+  if (!req.user?.userId) {
+    return res.status(401).json({ error: 'User not authenticated' });
+  }
+
   try {
     const { daysAhead = 90 } = req.query;
 
@@ -543,6 +568,10 @@ router.get('/renewals/candidates', authenticateToken, async (req, res) => {
 
 // Create lease renewal
 router.post('/:id/renew', authenticateToken, async (req, res) => {
+  if (!req.user?.userId) {
+    return res.status(401).json({ error: 'User not authenticated' });
+  }
+
   try {
     const { id } = req.params;
     const {
@@ -560,7 +589,7 @@ router.post('/:id/renew', authenticateToken, async (req, res) => {
       where: { id },
       include: {
         application: {
-          include: { 
+          include: {
             property: true,
             applicant: true
           }
@@ -601,13 +630,14 @@ router.post('/:id/renew', authenticateToken, async (req, res) => {
         applicationId: renewalApplication.id,
         tenantId: existingLease.tenantId,
         landlordId: existingLease.landlordId,
+        propertyId: existingLease.application.propertyId,
         startDate: existingLease.endDate,
         endDate: new Date(newEndDate),
         monthlyRent: newMonthlyRent ? parseInt(newMonthlyRent) : existingLease.monthlyRent,
         securityDeposit: existingLease.securityDeposit,
         terms: {
-          ...existingLease.terms,
-          ...renewalTerms,
+          ...(typeof existingLease.terms === 'object' && existingLease.terms !== null ? existingLease.terms : {}),
+          ...(typeof renewalTerms === 'object' && renewalTerms !== null ? renewalTerms : {}),
           isRenewal: true,
           previousLeaseId: id,
           renewedAt: new Date().toISOString()
@@ -663,6 +693,10 @@ router.post('/:id/renew', authenticateToken, async (req, res) => {
 
 // Generate lease document (placeholder for DocuSign integration)
 router.post('/:id/generate-document', authenticateToken, async (req, res) => {
+  if (!req.user?.userId) {
+    return res.status(401).json({ error: 'User not authenticated' });
+  }
+
   try {
     const { id } = req.params;
 
@@ -689,7 +723,7 @@ router.post('/:id/generate-document', authenticateToken, async (req, res) => {
     // TODO: Implement DocuSign template generation
     // This would generate a PDF lease document using a template
     // and prepare it for signing via DocuSign
-    
+
     // For now, return a placeholder response
     const documentData = {
       documentId: `doc_${id}_${Date.now()}`,
@@ -697,7 +731,7 @@ router.post('/:id/generate-document', authenticateToken, async (req, res) => {
       generatedAt: new Date(),
       status: 'GENERATED',
       variables: {
-        landlordName: `${lease.application.property.owner?.firstName} ${lease.application.property.owner?.lastName}`,
+        landlordName: `Landlord ID: ${lease.application.property.ownerId}`,
         tenantName: `${lease.application.applicant.firstName} ${lease.application.applicant.lastName}`,
         propertyAddress: lease.application.property.address,
         monthlyRent: lease.monthlyRent / 100,
@@ -713,7 +747,7 @@ router.post('/:id/generate-document', authenticateToken, async (req, res) => {
       where: { id },
       data: {
         terms: {
-          ...lease.terms,
+          ...(typeof lease.terms === 'object' && lease.terms !== null ? lease.terms : {}),
           documentGeneration: documentData
         }
       }
@@ -731,6 +765,10 @@ router.post('/:id/generate-document', authenticateToken, async (req, res) => {
 
 // Send lease for digital signature (placeholder for DocuSign integration)
 router.post('/:id/send-for-signature', authenticateToken, async (req, res) => {
+  if (!req.user?.userId) {
+    return res.status(401).json({ error: 'User not authenticated' });
+  }
+
   try {
     const { id } = req.params;
     const { signerEmail } = req.body;
@@ -762,7 +800,7 @@ router.post('/:id/send-for-signature', authenticateToken, async (req, res) => {
     // TODO: Implement DocuSign envelope creation and sending
     // This would create a DocuSign envelope with the lease document
     // and send it to the tenant for signature
-    
+
     // For now, return a placeholder response
     const envelopeData = {
       envelopeId: `env_${id}_${Date.now()}`,
@@ -785,7 +823,7 @@ router.post('/:id/send-for-signature', authenticateToken, async (req, res) => {
       data: {
         status: 'PENDING_SIGNATURE',
         terms: {
-          ...lease.terms,
+          ...(typeof lease.terms === 'object' && lease.terms !== null ? lease.terms : {}),
           digitalSignature: envelopeData
         }
       }
@@ -817,6 +855,10 @@ router.post('/:id/send-for-signature', authenticateToken, async (req, res) => {
 
 // Check lease compliance (placeholder for compliance monitoring)
 router.get('/:id/compliance', authenticateToken, async (req, res) => {
+  if (!req.user?.userId) {
+    return res.status(401).json({ error: 'User not authenticated' });
+  }
+
   try {
     const { id } = req.params;
 
@@ -835,8 +877,8 @@ router.get('/:id/compliance', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'Lease not found' });
     }
 
-    const canAccess = 
-      lease.application.property.ownerId === req.user.userId || 
+    const canAccess =
+      lease.application.property.ownerId === req.user.userId ||
       lease.tenantId === req.user.userId;
 
     if (!canAccess) {
@@ -846,7 +888,7 @@ router.get('/:id/compliance', authenticateToken, async (req, res) => {
     // TODO: Implement comprehensive compliance checking
     // This would check against NYC rental laws, rent stabilization rules,
     // FARE Act compliance, etc.
-    
+
     const complianceChecks = {
       fareActCompliance: {
         status: 'COMPLIANT',
@@ -856,7 +898,7 @@ router.get('/:id/compliance', authenticateToken, async (req, res) => {
       rentStabilization: {
         status: lease.application.property.isRentStabilized ? 'APPLICABLE' : 'NOT_APPLICABLE',
         lastChecked: new Date(),
-        details: lease.application.property.isRentStabilized 
+        details: lease.application.property.isRentStabilized
           ? 'Property is rent stabilized - renewal rules apply'
           : 'Property is not rent stabilized'
       },
@@ -887,6 +929,10 @@ router.get('/:id/compliance', authenticateToken, async (req, res) => {
 
 // Calculate rent escalation (placeholder for automated rent adjustments)
 router.post('/:id/escalation', authenticateToken, async (req, res) => {
+  if (!req.user?.userId) {
+    return res.status(401).json({ error: 'User not authenticated' });
+  }
+
   try {
     const { id } = req.params;
     const { escalationRate } = req.body;
@@ -914,7 +960,7 @@ router.post('/:id/escalation', authenticateToken, async (req, res) => {
 
     // TODO: Implement rent stabilization compliance checking
     // For rent stabilized units, escalation is limited by NYC regulations
-    
+
     const currentRent = lease.monthlyRent;
     const escalationAmount = Math.round(currentRent * (escalationRate / 100));
     const newRent = currentRent + escalationAmount;
@@ -929,7 +975,7 @@ router.post('/:id/escalation', authenticateToken, async (req, res) => {
       isRentStabilized: lease.application.property.isRentStabilized,
       compliance: {
         status: 'CALCULATED',
-        notes: lease.application.property.isRentStabilized 
+        notes: lease.application.property.isRentStabilized
           ? 'Subject to rent stabilization limits - verify against RGB guidelines'
           : 'Market rate property - escalation allowed'
       }
@@ -947,6 +993,10 @@ router.post('/:id/escalation', authenticateToken, async (req, res) => {
 
 // Get lease dashboard statistics
 router.get('/dashboard/stats', authenticateToken, async (req, res) => {
+  if (!req.user?.userId) {
+    return res.status(401).json({ error: 'User not authenticated' });
+  }
+
   try {
     // Check if user is landlord
     const user = await prisma.user.findUnique({

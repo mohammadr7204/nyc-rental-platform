@@ -38,7 +38,7 @@ router.get('/property/:propertyId', authenticateToken, async (req, res) => {
         where: { propertyId },
         _count: { status: true }
       }),
-      
+
       // Maintenance analytics
       prisma.maintenanceRequest.groupBy({
         by: ['status', 'priority'],
@@ -47,7 +47,7 @@ router.get('/property/:propertyId', authenticateToken, async (req, res) => {
         _avg: { cost: true },
         _sum: { cost: true }
       }),
-      
+
       // Payment analytics
       prisma.payment.aggregate({
         where: {
@@ -59,10 +59,10 @@ router.get('/property/:propertyId', authenticateToken, async (req, res) => {
         _sum: { amount: true },
         _avg: { amount: true }
       }),
-      
+
       // Recent activity (mock for now - would need to implement view tracking)
       Promise.resolve({ weeklyViews: Math.floor(Math.random() * 100) + 20 }),
-      
+
       // Lease history
       prisma.lease.findMany({
         where: { propertyId },
@@ -106,8 +106,8 @@ router.get('/property/:propertyId', authenticateToken, async (req, res) => {
       maintenance: {
         total: maintenanceStats.reduce((sum, stat) => sum + stat._count.status, 0),
         totalCost: maintenanceStats.reduce((sum, stat) => sum + (stat._sum.cost || 0), 0),
-        averageCost: maintenanceStats.length > 0 
-          ? maintenanceStats.reduce((sum, stat) => sum + (stat._avg.cost || 0), 0) / maintenanceStats.length 
+        averageCost: maintenanceStats.length > 0
+          ? maintenanceStats.reduce((sum, stat) => sum + (stat._avg.cost || 0), 0) / maintenanceStats.length
           : 0,
         byStatus: maintenanceStats.reduce((acc, stat) => {
           acc[stat.status.toLowerCase()] = stat._count.status;
@@ -191,7 +191,7 @@ router.get('/portfolio', authenticateToken, async (req, res) => {
     const totalProperties = properties.length;
     const occupiedProperties = properties.filter(p => p.leases.length > 0).length;
     const occupancyRate = (occupiedProperties / totalProperties) * 100;
-    
+
     const totalRevenue = properties.reduce((sum, property) => {
       return sum + (property.leases.length > 0 ? property.rentAmount : 0);
     }, 0);
@@ -220,8 +220,8 @@ router.get('/portfolio', authenticateToken, async (req, res) => {
       maintenanceCount: property.maintenanceRequests.length,
       maintenanceCost: property.maintenanceRequests.reduce((sum, req) => sum + (req.cost || 0), 0),
       monthlyRevenue: property.leases.length > 0 ? property.rentAmount : 0,
-      roi: property.leases.length > 0 ? 
-        ((property.rentAmount * 12) - property.maintenanceRequests.reduce((sum, req) => sum + (req.cost || 0), 0)) / (property.rentAmount * 12) * 100 
+      roi: property.leases.length > 0 ?
+        ((property.rentAmount * 12) - property.maintenanceRequests.reduce((sum, req) => sum + (req.cost || 0), 0)) / (property.rentAmount * 12) * 100
         : 0
     })).sort((a, b) => b.roi - a.roi);
 
@@ -315,7 +315,7 @@ router.get('/financial-report', authenticateToken, async (req, res) => {
           }
         }
       }),
-      
+
       prisma.maintenanceRequest.findMany({
         where: {
           ...whereClause,
@@ -327,11 +327,11 @@ router.get('/financial-report', authenticateToken, async (req, res) => {
           }
         }
       }),
-      
+
       prisma.property.findMany({
         where: {
           ownerId: userId,
-          ...(propertyId ? { id: propertyId } : {})
+          ...(propertyId ? { id: propertyId as string } : {})
         }
       })
     ]);
@@ -389,14 +389,14 @@ router.get('/financial-report', authenticateToken, async (req, res) => {
         }))
       },
       properties: properties.map(property => {
-        const propertyPayments = payments.filter(p => p.application?.property && 
+        const propertyPayments = payments.filter(p => p.application?.property &&
           // @ts-ignore
           p.application.property.title === property.title);
         const propertyExpenses = maintenanceExpenses.filter(e => e.property.title === property.title);
-        
+
         const income = propertyPayments.reduce((sum, p) => sum + p.amount, 0);
         const expenses = propertyExpenses.reduce((sum, e) => sum + (e.cost || 0), 0);
-        
+
         return {
           id: property.id,
           title: property.title,
@@ -424,7 +424,7 @@ router.get('/market-insights', authenticateToken, async (req, res) => {
 
     // Get user's properties for comparison
     const userProperties = await prisma.property.findMany({
-      where: { 
+      where: {
         ownerId: userId,
         ...(borough ? { borough: borough as any } : {}),
         ...(propertyType ? { propertyType: propertyType as any } : {})
@@ -468,11 +468,11 @@ router.get('/market-insights', authenticateToken, async (req, res) => {
     const userComparison = userProperties.reduce(
       (acc, property) => {
         const marketDiff = ((property.rentAmount - averageRent) / averageRent) * 100;
-        
+
         if (marketDiff > 5) acc.aboveMarket++;
         else if (marketDiff < -5) acc.belowMarket++;
         else acc.atMarket++;
-        
+
         return acc;
       },
       { aboveMarket: 0, atMarket: 0, belowMarket: 0 }
@@ -480,7 +480,7 @@ router.get('/market-insights', authenticateToken, async (req, res) => {
 
     // Generate recommendations
     const recommendations = [];
-    
+
     if (userComparison.belowMarket > 0) {
       recommendations.push({
         type: 'PRICE_INCREASE',

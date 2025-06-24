@@ -1,0 +1,4 @@
+Backup Created: Mon Jun 23 17:37:45 EDT 2025
+Database: nyc_rental_platform_prod
+User: postgres
+Platform Version: 891ab8426f7a7063862a7b84928bcbe84f2f8290

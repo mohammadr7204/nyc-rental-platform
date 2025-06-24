@@ -28,7 +28,7 @@ interface NotificationTemplate {
   category?: string;
 }
 
-class PushNotificationService {
+export class PushNotificationService {
   private initialized = false;
 
   constructor() {
@@ -39,7 +39,7 @@ class PushNotificationService {
     try {
       if (!admin.apps.length) {
         const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
-        
+
         if (serviceAccount) {
           admin.initializeApp({
             credential: admin.credential.cert(JSON.parse(serviceAccount)),
@@ -62,7 +62,7 @@ class PushNotificationService {
    * Send push notification to specific device tokens
    */
   async sendToTokens(
-    tokens: string[], 
+    tokens: string[],
     payload: PushNotificationPayload,
     options?: {
       priority?: 'high' | 'normal';
@@ -88,17 +88,9 @@ class PushNotificationService {
           timestamp: new Date().toISOString()
         },
         android: {
-          priority: options?.priority || 'high',
-          ttl: options?.timeToLive || 3600000, // 1 hour default
-          collapseKey: options?.collapseKey,
-          notification: {
-            sound: payload.sound || 'default',
-            clickAction: payload.clickAction || 'FLUTTER_NOTIFICATION_CLICK',
-            channelId: payload.category || 'default',
-            priority: 'high',
-            defaultSound: true,
-            defaultVibrateTimings: true
-          }
+          priority: (options?.priority === 'high' ? 'high' : 'normal') as 'high' | 'normal' | undefined,
+          ttl: options?.timeToLive || 3600000,
+          collapseKey: options?.collapseKey
         },
         apns: {
           payload: {
@@ -112,9 +104,7 @@ class PushNotificationService {
           },
           headers: {
             'apns-priority': options?.priority === 'high' ? '10' : '5',
-            'apns-expiration': options?.timeToLive ? 
-              Math.floor(Date.now() / 1000 + (options.timeToLive / 1000)).toString() : 
-              undefined
+            ...(options?.timeToLive ? { 'apns-expiration': String(options.timeToLive) } : {})
           }
         },
         webpush: {
@@ -148,7 +138,7 @@ class PushNotificationService {
         const failures = response.responses
           .map((resp, idx) => resp.success ? null : { token: tokens[idx], error: resp.error })
           .filter(Boolean);
-        
+
         logger.warn('Push notification failures:', { failures });
       }
 
@@ -170,7 +160,7 @@ class PushNotificationService {
    * Send notification to users by user IDs
    */
   async sendToUsers(
-    userIds: string[], 
+    userIds: string[],
     payload: PushNotificationPayload,
     options?: {
       priority?: 'high' | 'normal';
@@ -181,7 +171,7 @@ class PushNotificationService {
     try {
       // Get device tokens for users from database
       const deviceTokens = await this.getDeviceTokensForUsers(userIds, options?.platform);
-      
+
       if (deviceTokens.length === 0) {
         logger.warn('No device tokens found for users', { userIds });
         return { successCount: 0, failureCount: 0, errors: [] };
@@ -210,7 +200,7 @@ class PushNotificationService {
       // Replace variables in template
       let title = template.title;
       let body = template.body;
-      
+
       if (variables) {
         Object.entries(variables).forEach(([key, value]) => {
           title = title.replace(new RegExp(`{{${key}}}`, 'g'), value);
@@ -264,7 +254,7 @@ class PushNotificationService {
    * Send notification to topic
    */
   async sendToTopic(
-    topic: string, 
+    topic: string,
     payload: PushNotificationPayload,
     options?: {
       priority?: 'high' | 'normal';
@@ -288,8 +278,15 @@ class PushNotificationService {
         },
         topic: topic,
         android: {
-          priority: options?.priority || 'normal',
-          ttl: options?.timeToLive || 3600000
+          ttl: options?.timeToLive || 3600000,
+          notification: {
+            priority: (options?.priority === 'high' ? 'high' : 'default') as 'high' | 'default' | 'min' | 'low' | 'max' | undefined,
+            sound: payload.sound || 'default',
+            clickAction: payload.clickAction || 'FLUTTER_NOTIFICATION_CLICK',
+            channelId: payload.category || 'default',
+            defaultSound: true,
+            defaultVibrateTimings: true
+          }
         },
         apns: {
           headers: {
@@ -300,7 +297,7 @@ class PushNotificationService {
 
       const messageId = await admin.messaging().send(message);
       logger.info('Topic notification sent', { topic, messageId, title: payload.title });
-      
+
       return messageId;
     } catch (error) {
       logger.error('Failed to send topic notification:', error);
@@ -332,7 +329,7 @@ class PushNotificationService {
    * This would be implemented based on your user/device token storage
    */
   private async getDeviceTokensForUsers(
-    userIds: string[], 
+    userIds: string[],
     platform?: 'ios' | 'android' | 'web' | 'all'
   ): Promise<string[]> {
     // This is a placeholder implementation
@@ -340,17 +337,17 @@ class PushNotificationService {
     try {
       // Example query (replace with your actual database query)
       const tokens: string[] = [];
-      
+
       // You would implement something like:
       // const users = await prisma.user.findMany({
       //   where: { id: { in: userIds } },
-      //   include: { 
+      //   include: {
       //     deviceTokens: {
       //       where: platform ? { platform } : undefined
       //     }
       //   }
       // });
-      // 
+      //
       // users.forEach(user => {
       //   user.deviceTokens.forEach(device => {
       //     if (device.token && device.isActive) {
@@ -419,7 +416,7 @@ class PushNotificationService {
     if (data) {
       template.data = { ...template.data, ...data };
     }
-    
+
     return template;
   }
 }

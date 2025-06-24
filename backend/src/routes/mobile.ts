@@ -43,13 +43,13 @@ router.post('/sync', async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user?.id;
     const userRole = (req as any).user?.role;
-    
+
     if (!userId) {
       return res.status(401).json({ error: 'User not authenticated' });
     }
 
     const { lastSyncTimestamp, deviceId, clientChanges }: SyncRequest = req.body;
-    
+
     logger.info('Mobile sync request', {
       userId,
       deviceId,
@@ -74,7 +74,7 @@ router.post('/sync', async (req: Request, res: Response) => {
     };
 
     // Log sync metrics
-    const changeCount = Object.values(changes).reduce((total, items) => {
+    const changeCount = Object.values(changes).reduce((total: number, items: any) => {
       return total + (Array.isArray(items) ? items.length : (items ? 1 : 0));
     }, 0);
 
@@ -104,7 +104,7 @@ router.get('/offline-bundle', async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user?.id;
     const userRole = (req as any).user?.role;
-    
+
     if (!userId) {
       return res.status(401).json({ error: 'User not authenticated' });
     }
@@ -189,7 +189,7 @@ router.get('/reference-data', async (req: Request, res: Response) => {
 router.post('/queue-action', async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user?.id;
-    
+
     if (!userId) {
       return res.status(401).json({ error: 'User not authenticated' });
     }
@@ -249,11 +249,11 @@ router.post('/queue-action', async (req: Request, res: Response) => {
 router.get('/cached-properties', async (req: Request, res: Response) => {
   try {
     const { page = 1, limit = 20, location, maxPrice } = req.query;
-    
+
     // Get recent active properties with basic data for offline browsing
     // This would be a optimized query for mobile consumption
-    const properties = []; // Implement based on your needs
-    
+    const properties: any[] = []; // Implement based on your needs
+
     // TODO: Implement property caching logic
     /*
     const properties = await prisma.property.findMany({
@@ -307,7 +307,7 @@ router.get('/cached-properties', async (req: Request, res: Response) => {
 router.post('/resolve-conflict', async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user?.id;
-    
+
     if (!userId) {
       return res.status(401).json({ error: 'User not authenticated' });
     }

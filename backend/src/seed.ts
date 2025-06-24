@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Borough, PropertyType } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
@@ -46,9 +46,9 @@ async function main() {
       description: 'Beautiful 2-bedroom apartment in the heart of Manhattan. Features modern kitchen, large living room, and great views. Perfect for professionals or couples. Walking distance to subway and all amenities.',
       address: '123 Broadway',
       city: 'New York',
-      borough: 'MANHATTAN',
+      borough: Borough.MANHATTAN,
       zipCode: '10001',
-      propertyType: 'APARTMENT',
+      propertyType: PropertyType.APARTMENT,
       bedrooms: 2,
       bathrooms: 1.5,
       squareFeet: 1200,
@@ -67,9 +67,9 @@ async function main() {
       description: 'Charming studio apartment in trendy Brooklyn neighborhood. Recently renovated with modern fixtures and appliances. Great natural light and close to parks.',
       address: '456 Atlantic Avenue',
       city: 'New York',
-      borough: 'BROOKLYN',
+      borough: Borough.BROOKLYN,
       zipCode: '11201',
-      propertyType: 'STUDIO',
+      propertyType: PropertyType.STUDIO,
       bedrooms: 0,
       bathrooms: 1,
       squareFeet: 600,
@@ -87,9 +87,9 @@ async function main() {
       description: 'Spacious 3-bedroom family apartment in Queens. Perfect for families with children. Near good schools and parks. Quiet residential neighborhood.',
       address: '789 Northern Boulevard',
       city: 'New York',
-      borough: 'QUEENS',
+      borough: Borough.QUEENS,
       zipCode: '11372',
-      propertyType: 'APARTMENT',
+      propertyType: PropertyType.APARTMENT,
       bedrooms: 3,
       bathrooms: 2,
       squareFeet: 1500,
@@ -106,13 +106,8 @@ async function main() {
   ];
 
   for (const propertyData of properties) {
-    await prisma.property.upsert({
-      where: {
-        // Use a combination that should be unique
-        address: propertyData.address
-      },
-      update: {},
-      create: propertyData
+    await prisma.property.create({
+      data: propertyData
     });
   }
 

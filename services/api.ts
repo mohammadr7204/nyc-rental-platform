@@ -509,18 +509,20 @@ export const authService = {
       const response = await api.post('/auth/login', credentials);
       return response.data;
     } catch (error) {
-      // Mock response for development
+      // Mock response for development while database is being fixed
       if (credentials.email && credentials.password) {
         return {
-          data: {
-            token: 'mock-jwt-token',
-            user: {
-              id: '1',
-              email: credentials.email,
-              firstName: 'John',
-              lastName: 'Doe',
-              userType: credentials.email.includes('landlord') ? 'LANDLORD' : 'RENTER'
-            }
+          success: true,
+          message: 'Login successful',
+          token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxIiwidXNlclR5cGUiOiJSRU5URVIiLCJpYXQiOjE3MzQ5NzI3NzcsImV4cCI6MTczNTU3NzU3N30.mock',
+          user: {
+            id: '1',
+            email: credentials.email,
+            firstName: 'Test',
+            lastName: 'User',
+            userType: credentials.email.includes('landlord') ? 'LANDLORD' : 'RENTER',
+            verificationStatus: 'VERIFIED',
+            emailVerified: true
           }
         };
       }
@@ -540,15 +542,17 @@ export const authService = {
       const response = await api.post('/auth/register', userData);
       return response.data;
     } catch (error) {
-      // Mock response for development
+      // Mock response for development while database is being fixed
       return {
-        data: {
-          token: 'mock-jwt-token',
-          user: {
-            id: '1',
-            ...userData,
-            password: undefined // Remove password from response
-          }
+        success: true,
+        message: 'User registered successfully',
+        token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxIiwidXNlclR5cGUiOiJSRU5URVIiLCJpYXQiOjE3MzQ5NzI3NzcsImV4cCI6MTczNTU3NzU3N30.mock',
+        user: {
+          id: '1',
+          ...userData,
+          password: undefined, // Remove password from response
+          verificationStatus: 'VERIFIED',
+          emailVerified: true
         }
       };
     }
@@ -559,18 +563,19 @@ export const authService = {
       const response = await api.get('/auth/verify');
       return response.data;
     } catch (error) {
-      // Mock response for development
+      // Mock response for development while database is being fixed
       const token = localStorage.getItem('token');
       if (token) {
         return {
-          data: {
-            user: {
-              id: '1',
-              email: 'user@example.com',
-              firstName: 'John',
-              lastName: 'Doe',
-              userType: 'RENTER'
-            }
+          success: true,
+          user: {
+            id: '1',
+            email: 'test@example.com',
+            firstName: 'Test',
+            lastName: 'User',
+            userType: 'RENTER',
+            verificationStatus: 'VERIFIED',
+            emailVerified: true
           }
         };
       }
@@ -583,8 +588,8 @@ export const authService = {
       const response = await api.post('/auth/forgot-password', { email });
       return response.data;
     } catch (error) {
-      // Mock response for development
-      return { data: { message: 'Password reset email sent' } };
+      // Mock response for development while database is being fixed
+      return { success: true, message: 'Password reset email sent' };
     }
   },
 };
@@ -1050,7 +1055,7 @@ export const paymentService = {
       return response.data;
     } catch (error) {
       // Mock response for development
-      return { 
+      return {
         data: MOCK_PAYMENTS,
         pagination: {
           page,
@@ -1105,7 +1110,7 @@ export const maintenanceService = {
       formData.append('title', data.title);
       formData.append('description', data.description);
       formData.append('priority', data.priority || 'MEDIUM');
-      
+
       if (data.photos) {
         data.photos.forEach(photo => {
           formData.append('photos', photo);
@@ -1359,7 +1364,7 @@ export const tenantService = {
         stripePaymentIntentId: `pi_simulated_${Date.now()}`,
         description: `Rent payment for ${new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`
       };
-      
+
       MOCK_PAYMENTS.unshift(newPayment);
       return { data: newPayment };
     }
@@ -1548,7 +1553,7 @@ export const vendorService = {
       // Mock response for development
       const mockRequest = MOCK_MAINTENANCE_REQUESTS.find(req => req.id === maintenanceId);
       const vendor = data.vendorId ? MOCK_VENDORS.find(v => v.id === data.vendorId) : null;
-      
+
       return {
         data: {
           ...mockRequest,
@@ -1581,19 +1586,19 @@ export const inspectionService = {
     } catch (error) {
       // Mock response for development
       let filteredInspections = MOCK_INSPECTIONS;
-      
+
       if (params?.propertyId) {
         filteredInspections = filteredInspections.filter(i => i.property.id === params.propertyId);
       }
-      
+
       if (params?.status) {
         filteredInspections = filteredInspections.filter(i => i.status === params.status);
       }
-      
+
       if (params?.type) {
         filteredInspections = filteredInspections.filter(i => i.type === params.type);
       }
-      
+
       return {
         data: {
           inspections: filteredInspections,
@@ -1738,14 +1743,14 @@ export const inspectionService = {
       const params: any = {};
       if (startDate) params.startDate = startDate;
       if (endDate) params.endDate = endDate;
-      
+
       const response = await api.get(`/inspections/property/${propertyId}/availability`, { params });
       return response.data;
     } catch (error) {
       // Mock response for development
       return {
         data: {
-          scheduledInspections: MOCK_INSPECTIONS.filter(i => 
+          scheduledInspections: MOCK_INSPECTIONS.filter(i =>
             i.property.id === propertyId && i.status === 'SCHEDULED'
           )
         }
@@ -1928,7 +1933,7 @@ export const leaseService = {
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         return diffDays <= 90 && diffDays > 0;
       });
-      
+
       return { data: expiringLeases };
     }
   },
@@ -2051,7 +2056,7 @@ export const analyticsService = {
       // Mock response for development
       const startDate = params?.startDate || '2025-01-01';
       const endDate = params?.endDate || '2025-12-31';
-      
+
       return {
         data: {
           period: {
@@ -2188,7 +2193,7 @@ export const uploadService = {
       const formData = new FormData();
       formData.append('file', file);
       formData.append('folder', folder);
-      
+
       const response = await api.post('/upload/single', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
@@ -2214,7 +2219,7 @@ export const uploadService = {
       const formData = new FormData();
       files.forEach(file => formData.append('files', file));
       formData.append('folder', folder);
-      
+
       const response = await api.post('/upload/multiple', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',

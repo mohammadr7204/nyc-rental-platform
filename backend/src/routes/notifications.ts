@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { body, param, query, validationResult } from 'express-validator';
 import { PrismaClient } from '@prisma/client';
 import { logger } from '../utils/logger';
-import { pushNotificationService } from '../services/pushNotificationService';
+import { pushNotificationService, PushNotificationService } from '../services/pushNotificationService';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -235,7 +235,7 @@ router.post('/payment-reminder', [
   try {
     const { amount, dueDate, userIds } = req.body;
 
-    const template = pushNotificationService.constructor.getTemplate('payment_due');
+    const template = PushNotificationService.getTemplate('payment_due');
     const result = await pushNotificationService.sendTemplatedNotification(
       userIds,
       template,
@@ -274,7 +274,7 @@ router.post('/maintenance-update', [
   try {
     const { requestId, status, userIds } = req.body;
 
-    const template = pushNotificationService.constructor.getTemplate('maintenance_update');
+    const template = PushNotificationService.getTemplate('maintenance_update');
     const result = await pushNotificationService.sendTemplatedNotification(
       userIds,
       template,
@@ -311,7 +311,7 @@ router.post('/lease-renewal', [
   try {
     const { expirationDate, userIds } = req.body;
 
-    const template = pushNotificationService.constructor.getTemplate('lease_renewal');
+    const template = PushNotificationService.getTemplate('lease_renewal');
     const result = await pushNotificationService.sendTemplatedNotification(
       userIds,
       template,
@@ -347,7 +347,7 @@ router.post('/message', [
   try {
     const { senderName, recipientIds } = req.body;
 
-    const template = pushNotificationService.constructor.getTemplate('message_received');
+    const template = PushNotificationService.getTemplate('message_received');
     const result = await pushNotificationService.sendTemplatedNotification(
       recipientIds,
       template,
@@ -389,7 +389,7 @@ router.post('/subscribe-topic', [
     }
 
     let tokens = deviceTokens;
-    
+
     if (!tokens || tokens.length === 0) {
       // Get user's device tokens from database
       tokens = []; // Implement database query here
@@ -483,7 +483,7 @@ router.get('/history', [
 
     // Get notification history from database
     // This would be implemented based on your notification logging system
-    const notifications = []; // Implement database query here
+    const notifications: any[] = []; // Implement database query here
 
     res.json({
       success: true,

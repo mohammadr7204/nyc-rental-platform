@@ -30,7 +30,7 @@ const upload = multer({
     const allowedTypes = /jpeg|jpg|png|gif|webp/;
     const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
     const mimetype = allowedTypes.test(file.mimetype);
-    
+
     if (mimetype && extname) {
       return cb(null, true);
     } else {
@@ -41,20 +41,27 @@ const upload = multer({
 
 // Get all inspections for a landlord with filtering and pagination
 router.get('/', authenticateToken, async (req, res) => {
+  if (!req.user?.userId) {
+    return res.status(401).json({ error: 'User not authenticated' });
+  }
+
+  // Type assertion since we've already checked req.user exists
+  const userId = req.user.userId;
+
   try {
-    const { 
-      propertyId, 
-      status, 
-      type, 
-      startDate, 
-      endDate, 
-      page = 1, 
-      limit = 10 
+    const {
+      propertyId,
+      status,
+      type,
+      startDate,
+      endDate,
+      page = 1,
+      limit = 10
     } = req.query;
 
     // Check if user is landlord
     const user = await prisma.user.findUnique({
-      where: { id: req.user.userId }
+      where: { id: userId }
     });
 
     if (!user || user.userType !== 'LANDLORD') {
@@ -66,7 +73,7 @@ router.get('/', authenticateToken, async (req, res) => {
 
     // Filter by properties owned by the landlord
     where.property = {
-      ownerId: req.user.userId
+      ownerId: userId
     };
 
     if (propertyId) {
@@ -130,6 +137,12 @@ router.get('/', authenticateToken, async (req, res) => {
 
 // Get inspection by ID
 router.get('/:id', authenticateToken, async (req, res) => {
+  if (!req.user?.userId) {
+    return res.status(401).json({ error: 'User not authenticated' });
+  }
+
+  const userId = req.user.userId;
+
   try {
     const { id } = req.params;
 
@@ -157,7 +170,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
     }
 
     // Check permissions - only property owner can view
-    if (inspection.property.ownerId !== req.user.userId) {
+    if (inspection.property.ownerId !== userId) {
       return res.status(403).json({ error: 'Access denied' });
     }
 
@@ -170,6 +183,12 @@ router.get('/:id', authenticateToken, async (req, res) => {
 
 // Create new inspection
 router.post('/', authenticateToken, async (req, res) => {
+  if (!req.user?.userId) {
+    return res.status(401).json({ error: 'User not authenticated' });
+  }
+
+  const userId = req.user.userId;
+
   try {
     const {
       propertyId,
@@ -191,7 +210,7 @@ router.post('/', authenticateToken, async (req, res) => {
       where: { id: propertyId }
     });
 
-    if (!property || property.ownerId !== req.user.userId) {
+    if (!property || property.ownerId !== userId) {
       return res.status(403).json({ error: 'Access denied. You can only schedule inspections for your properties.' });
     }
 
@@ -219,10 +238,10 @@ router.post('/', authenticateToken, async (req, res) => {
         type,
         scheduledDate: new Date(scheduledDate),
         notes: notes || '',
-        inspectorId: inspectorId || null,
+        inspectorId: inspectorId || undefined,
         status: 'SCHEDULED',
         photos: [],
-        report: null
+        report: undefined
       },
       include: {
         property: {
@@ -239,7 +258,7 @@ router.post('/', authenticateToken, async (req, res) => {
     // Log activity
     await prisma.activityLog.create({
       data: {
-        userId: req.user.userId,
+        userId: userId,
         action: 'CREATE_INSPECTION',
         entity: 'PropertyInspection',
         entityId: inspection.id,
@@ -260,6 +279,12 @@ router.post('/', authenticateToken, async (req, res) => {
 
 // Update inspection
 router.put('/:id', authenticateToken, async (req, res) => {
+  if (!req.user?.userId) {
+    return res.status(401).json({ error: 'User not authenticated' });
+  }
+
+  const userId = req.user.userId;
+
   try {
     const { id } = req.params;
     const {
@@ -282,7 +307,7 @@ router.put('/:id', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'Inspection not found' });
     }
 
-    if (existingInspection.property.ownerId !== req.user.userId) {
+    if (existingInspection.property.ownerId !== userId) {
       return res.status(403).json({ error: 'Access denied' });
     }
 
@@ -341,7 +366,7 @@ router.put('/:id', authenticateToken, async (req, res) => {
     // Log activity
     await prisma.activityLog.create({
       data: {
-        userId: req.user.userId,
+        userId: userId,
         action: 'UPDATE_INSPECTION',
         entity: 'PropertyInspection',
         entityId: inspection.id,
@@ -358,6 +383,12 @@ router.put('/:id', authenticateToken, async (req, res) => {
 
 // Upload photos for inspection
 router.post('/:id/photos', authenticateToken, upload.array('photos', 10), async (req, res) => {
+  if (!req.user?.userId) {
+    return res.status(401).json({ error: 'User not authenticated' });
+  }
+
+  const userId = req.user.userId;
+
   try {
     const { id } = req.params;
     const files = req.files as Express.Multer.File[];
@@ -376,13 +407,13 @@ router.post('/:id/photos', authenticateToken, upload.array('photos', 10), async 
       return res.status(404).json({ error: 'Inspection not found' });
     }
 
-    if (inspection.property.ownerId !== req.user.userId) {
+    if (inspection.property.ownerId !== userId) {
       return res.status(403).json({ error: 'Access denied' });
     }
 
     // Process uploaded files
     const photoUrls = files.map(file => `/uploads/inspections/${file.filename}`);
-    
+
     // Add new photos to existing ones
     const updatedPhotos = [...inspection.photos, ...photoUrls];
 
@@ -404,7 +435,7 @@ router.post('/:id/photos', authenticateToken, upload.array('photos', 10), async 
     // Log activity
     await prisma.activityLog.create({
       data: {
-        userId: req.user.userId,
+        userId: userId,
         action: 'UPLOAD_INSPECTION_PHOTOS',
         entity: 'PropertyInspection',
         entityId: inspection.id,
@@ -427,6 +458,12 @@ router.post('/:id/photos', authenticateToken, upload.array('photos', 10), async 
 
 // Delete photo from inspection
 router.delete('/:id/photos/:photoIndex', authenticateToken, async (req, res) => {
+  if (!req.user?.userId) {
+    return res.status(401).json({ error: 'User not authenticated' });
+  }
+
+  const userId = req.user.userId;
+
   try {
     const { id, photoIndex } = req.params;
     const index = parseInt(photoIndex);
@@ -441,7 +478,7 @@ router.delete('/:id/photos/:photoIndex', authenticateToken, async (req, res) => 
       return res.status(404).json({ error: 'Inspection not found' });
     }
 
-    if (inspection.property.ownerId !== req.user.userId) {
+    if (inspection.property.ownerId !== userId) {
       return res.status(403).json({ error: 'Access denied' });
     }
 
@@ -451,7 +488,7 @@ router.delete('/:id/photos/:photoIndex', authenticateToken, async (req, res) => 
 
     // Remove photo from array
     const updatedPhotos = inspection.photos.filter((_, i) => i !== index);
-    
+
     // Try to delete the physical file
     const photoPath = inspection.photos[index];
     if (photoPath) {
@@ -479,6 +516,12 @@ router.delete('/:id/photos/:photoIndex', authenticateToken, async (req, res) => 
 
 // Delete inspection
 router.delete('/:id', authenticateToken, async (req, res) => {
+  if (!req.user?.userId) {
+    return res.status(401).json({ error: 'User not authenticated' });
+  }
+
+  const userId = req.user.userId;
+
   try {
     const { id } = req.params;
 
@@ -492,14 +535,14 @@ router.delete('/:id', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'Inspection not found' });
     }
 
-    if (inspection.property.ownerId !== req.user.userId) {
+    if (inspection.property.ownerId !== userId) {
       return res.status(403).json({ error: 'Access denied' });
     }
 
     // Don't allow deletion of completed inspections
     if (inspection.status === 'COMPLETED') {
-      return res.status(400).json({ 
-        error: 'Cannot delete completed inspections. Consider cancelling instead.' 
+      return res.status(400).json({
+        error: 'Cannot delete completed inspections. Consider cancelling instead.'
       });
     }
 
@@ -522,7 +565,7 @@ router.delete('/:id', authenticateToken, async (req, res) => {
     // Log activity
     await prisma.activityLog.create({
       data: {
-        userId: req.user.userId,
+        userId: userId,
         action: 'DELETE_INSPECTION',
         entity: 'PropertyInspection',
         entityId: id,
@@ -543,6 +586,12 @@ router.delete('/:id', authenticateToken, async (req, res) => {
 
 // Get inspection availability for a property
 router.get('/property/:propertyId/availability', authenticateToken, async (req, res) => {
+  if (!req.user?.userId) {
+    return res.status(401).json({ error: 'User not authenticated' });
+  }
+
+  const userId = req.user.userId;
+
   try {
     const { propertyId } = req.params;
     const { startDate, endDate } = req.query;
@@ -552,7 +601,7 @@ router.get('/property/:propertyId/availability', authenticateToken, async (req, 
       where: { id: propertyId }
     });
 
-    if (!property || property.ownerId !== req.user.userId) {
+    if (!property || property.ownerId !== userId) {
       return res.status(403).json({ error: 'Access denied' });
     }
 
@@ -593,9 +642,15 @@ router.get('/property/:propertyId/availability', authenticateToken, async (req, 
 
 // Get inspection dashboard stats
 router.get('/dashboard/stats', authenticateToken, async (req, res) => {
+  if (!req.user?.userId) {
+    return res.status(401).json({ error: 'User not authenticated' });
+  }
+
+  const userId = req.user.userId;
+
   try {
     const user = await prisma.user.findUnique({
-      where: { id: req.user.userId }
+      where: { id: userId }
     });
 
     if (!user || user.userType !== 'LANDLORD') {
@@ -615,20 +670,20 @@ router.get('/dashboard/stats', authenticateToken, async (req, res) => {
       // Total inspections
       prisma.propertyInspection.count({
         where: {
-          property: { ownerId: req.user.userId }
+          property: { ownerId: userId }
         }
       }),
       // Scheduled inspections
       prisma.propertyInspection.count({
         where: {
-          property: { ownerId: req.user.userId },
+          property: { ownerId: userId },
           status: 'SCHEDULED'
         }
       }),
       // Upcoming inspections (next 30 days)
       prisma.propertyInspection.count({
         where: {
-          property: { ownerId: req.user.userId },
+          property: { ownerId: userId },
           status: 'SCHEDULED',
           scheduledDate: {
             gte: new Date(),
@@ -639,7 +694,7 @@ router.get('/dashboard/stats', authenticateToken, async (req, res) => {
       // Completed this month
       prisma.propertyInspection.count({
         where: {
-          property: { ownerId: req.user.userId },
+          property: { ownerId: userId },
           status: 'COMPLETED',
           completedDate: {
             gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1)
@@ -649,7 +704,7 @@ router.get('/dashboard/stats', authenticateToken, async (req, res) => {
       // Overdue inspections
       prisma.propertyInspection.count({
         where: {
-          property: { ownerId: req.user.userId },
+          property: { ownerId: userId },
           status: 'SCHEDULED',
           scheduledDate: {
             lt: new Date()
@@ -667,7 +722,7 @@ router.get('/dashboard/stats', authenticateToken, async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching inspection stats:', error);
-    res.status(500).json({ error: 'Failed to fetch inspection statistics' });
+    res.status(500).json({ error: 'Failed to fetch stats' });
   }
 });
 
